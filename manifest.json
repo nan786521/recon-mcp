@@ -27,10 +27,5 @@
         "PYTHONUNBUFFERED": "1"
       }
     }
-  },
-  "tools": [
-    { "name": "dns_recon", "description": "Passive DNS + WHOIS + email-security (SPF/DMARC/DKIM) lookup with a graded assessment." },
-    { "name": "tls_check", "description": "SSL/TLS inspection: certificate, protocols, ciphers, forward secrecy, and known vulnerabilities — graded." },
-    { "name": "http_headers_audit", "description": "Audits HTTP security response headers (CSP, HSTS, X-Frame-Options, ...) — graded." }
-  ]
+  }
 }
