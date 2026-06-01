@@ -7,9 +7,27 @@ license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [{ name = "nan786521" }]
 keywords = ["mcp", "model-context-protocol", "security", "recon", "dns", "ssl", "claude", "codex", "cline"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Internet :: Name Service (DNS)",
+]
 dependencies = [
     "mcp>=1.2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/nan786521/recon-mcp"
+Repository = "https://github.com/nan786521/recon-mcp"
+Issues = "https://github.com/nan786521/recon-mcp/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

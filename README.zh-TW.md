@@ -32,6 +32,14 @@
 
 需要 Python ≥ 3.10。
 
+**推薦 —— 免 clone,透過 [uv](https://docs.astral.sh/uv/):**
+
+```bash
+uvx recon-mcp
+```
+
+**或從原始碼安裝(開發用):**
+
 ```bash
 git clone https://github.com/nan786521/recon-mcp
 cd recon-mcp
@@ -45,10 +53,10 @@ pip install -e .
 
 ## 在 Claude Code 中使用
 
-新增 server(stdio transport):
+新增 server(stdio transport)。用 `uvx` 不需要絕對路徑:
 
 ```bash
-claude mcp add recon -- /絕對路徑/到/.venv/bin/recon-mcp
+claude mcp add recon -- uvx recon-mcp
 ```
 
 或手動加進任何 MCP 用戶端設定:
@@ -57,11 +65,14 @@ claude mcp add recon -- /絕對路徑/到/.venv/bin/recon-mcp
 {
   "mcpServers": {
     "recon": {
-      "command": "/絕對路徑/到/.venv/bin/recon-mcp"
+      "command": "uvx",
+      "args": ["recon-mcp"]
     }
   }
 }
 ```
+
+(從原始碼 checkout 時,改把 command 指向 `/絕對路徑/到/.venv/bin/recon-mcp`。)
 
 接著就能對 agent 說:*「用 dns_recon 查 example.com,告訴我它的郵件安全
 設定有沒有做好」* 或 *「稽核 example.com 的 TLS 與安全標頭」*。

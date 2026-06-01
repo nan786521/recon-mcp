@@ -34,6 +34,14 @@ Roadmap: `port_scan` (rate-limited, opt-in, authorized targets only).
 
 Requires Python ≥ 3.10.
 
+**Recommended — no clone, via [uv](https://docs.astral.sh/uv/):**
+
+```bash
+uvx recon-mcp
+```
+
+**Or from source (for development):**
+
 ```bash
 git clone https://github.com/nan786521/recon-mcp
 cd recon-mcp
@@ -47,10 +55,10 @@ pip install -e .
 
 ## Use with Claude Code
 
-Add the server (stdio transport):
+Add the server (stdio transport). With `uvx` you don't need an absolute path:
 
 ```bash
-claude mcp add recon -- /absolute/path/to/.venv/bin/recon-mcp
+claude mcp add recon -- uvx recon-mcp
 ```
 
 Or add it manually to any MCP client config:
@@ -59,11 +67,14 @@ Or add it manually to any MCP client config:
 {
   "mcpServers": {
     "recon": {
-      "command": "/absolute/path/to/.venv/bin/recon-mcp"
+      "command": "uvx",
+      "args": ["recon-mcp"]
     }
   }
 }
 ```
+
+(From a source checkout, point the command at `/absolute/path/to/.venv/bin/recon-mcp` instead.)
 
 Then ask the agent things like *"run dns_recon on example.com and tell me if its
 email security is properly configured"* or *"audit the TLS and security headers
