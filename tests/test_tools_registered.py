@@ -15,3 +15,7 @@ def test_tools_have_descriptions():
     tools = asyncio.run(mcp.list_tools())
     for t in tools:
         assert t.description, f"{t.name} is missing a description"
+
+
+def test_server_has_authorized_use_instructions():
+    assert mcp.instructions and "authorized" in mcp.instructions.lower()

@@ -18,7 +18,20 @@ from recon_mcp.tools.portscan import PortScanner, PortScanError
 from recon_mcp.tools.subdomain import SubdomainEnumerator, SubdomainEnumError
 from recon_mcp.tools.report import build_report
 
-mcp = FastMCP("recon-mcp")
+mcp = FastMCP(
+    "recon-mcp",
+    instructions=(
+        "recon-kit-mcp provides read-only network & security reconnaissance tools "
+        "for a single target. Tools: recon_report (one-call DNS+TLS+headers overview "
+        "with an overall grade), dns_recon, subdomain_enum, tls_check, "
+        "http_headers_audit, and port_scan. Each returns structured JSON with a "
+        "letter grade — start with recon_report for the full picture. "
+        "Only run these against assets the user owns or is explicitly authorized to "
+        "assess (pentest engagement, CTF, or education); if authorization is unclear, "
+        "ask before scanning."
+    ),
+    website_url="https://github.com/nan786521/recon-mcp",
+)
 
 
 @mcp.tool()
