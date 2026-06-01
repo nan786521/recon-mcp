@@ -21,3 +21,6 @@ env/
 .idea/
 .DS_Store
 Thumbs.db
+
+# MCPB build staging
+.mcpb-build/
