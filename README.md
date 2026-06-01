@@ -114,11 +114,13 @@ prompt menu and pass a domain for a guided, severity-sorted audit.
 Runs DNS/email, TLS, and HTTP-header checks together and returns `overall_grade`
 (as weak as the weakest component), a one-line `summary`, and `components`
 (`email` / `tls` / `headers`), each with its `grade` and actionable `issues`.
-The best starting point; use the tools below for raw detail.
+Uses a fast single-handshake TLS check for speed — call `tls_check` for the full
+cipher/vulnerability analysis. The best starting point; use the tools below for
+raw detail.
 
 ### `dns_recon(domain, checks?, timeout?) -> dict`
 
-- **records** — A, AAAA, MX, NS, TXT, SOA, CNAME records
+- **records** — A, AAAA, MX, NS, TXT, SOA, CNAME, CAA records
 - **whois** — parsed registration fields + raw WHOIS text
 - **email** — SPF, DMARC, and DKIM posture, plus a graded `assessment`
   (letter grade A–F, a summary, and per-check findings with severity and a

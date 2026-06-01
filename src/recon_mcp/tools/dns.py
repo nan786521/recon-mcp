@@ -32,7 +32,7 @@ WHOIS_SERVERS = {
 # DNS record type codes
 DNS_TYPES = {
     'A': 1, 'NS': 2, 'CNAME': 5, 'SOA': 6, 'MX': 15,
-    'TXT': 16, 'AAAA': 28,
+    'TXT': 16, 'AAAA': 28, 'CAA': 257,
 }
 
 # Public DNS resolvers (for propagation checks)
@@ -155,7 +155,7 @@ class DNSRecon:
     def dns_query_all(self, domain, record_types=None):
         """Query several DNS record types at once."""
         if record_types is None:
-            record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA', 'CNAME']
+            record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA', 'CNAME', 'CAA']
 
         results = {}
         for rt in record_types:
@@ -297,6 +297,12 @@ class DNSRecon:
                     record['expire'] = expire
                 else:
                     record['value'] = f'{mname} {rname}'
+            elif record_type == 'CAA' and len(rdata) >= 2:
+                flags = rdata[0]
+                tag_len = rdata[1]
+                tag = rdata[2:2 + tag_len].decode('ascii', errors='replace')
+                value = rdata[2 + tag_len:].decode('utf-8', errors='replace')
+                record['value'] = f'{flags} {tag} "{value}"'
             else:
                 record['value'] = rdata.hex()
 

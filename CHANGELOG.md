@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-06-01
+
+### Added
+- `dns_recon` now reports **CAA** records (relevant to certificate issuance).
+- ruff linting in CI; CI now also runs on Windows and macOS.
+
+### Changed
+- `recon_report` uses a fast single-handshake TLS check, so the overview no
+  longer pays for full cipher enumeration (much faster on slow/dead hosts).
+  `tls_check` still does the full analysis.
+- Every tool now returns a consistent `{"error": ...}` on unexpected failures
+  instead of propagating, while keeping its input schema intact.
+
 ## [0.5.1] — 2026-06-01
 
 ### Changed
@@ -57,6 +70,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.6.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.6.0
 [0.5.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.4.1

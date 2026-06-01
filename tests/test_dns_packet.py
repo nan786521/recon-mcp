@@ -55,6 +55,17 @@ def test_parse_rejects_servfail():
     assert "error" in parsed
 
 
+def test_parse_caa_record():
+    recon = DNSRecon()
+    header = struct.pack(">HHHHHH", 0x1234, 0x8180, 1, 1, 0, 0)
+    qname = b"\x07example\x03com\x00"
+    question = qname + struct.pack(">HH", 257, 1)  # CAA / IN
+    rdata = b"\x00" + bytes([5]) + b"issue" + b"letsencrypt.org"
+    answer = b"\xc0\x0c" + struct.pack(">HHIH", 257, 1, 3600, len(rdata)) + rdata
+    parsed = recon._parse_dns_response(header + question + answer, "CAA")
+    assert parsed["records"][0]["value"] == '0 issue "letsencrypt.org"'
+
+
 def test_spf_all_mechanism_parsing():
     recon = DNSRecon()
     assert recon._parse_spf_all("v=spf1 -all") == "fail"

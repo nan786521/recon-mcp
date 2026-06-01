@@ -111,12 +111,13 @@ server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它
 
 一次跑完 DNS/郵件、TLS、HTTP 標頭檢查,回傳 `overall_grade`(以最弱的元件
 為準)、一行 `summary`,以及 `components`(`email` / `tls` / `headers`),
-每項含自己的 `grade` 與可行動的 `issues`。**建議的起點**;要原始細節再用下面
-各別工具。
+每項含自己的 `grade` 與可行動的 `issues`。為求快速,TLS 採單次握手的輕量檢查
+——要完整的加密套件/漏洞分析請用 `tls_check`。**建議的起點**;要原始細節再用
+下面各別工具。
 
 ### `dns_recon(domain, checks?, timeout?) -> dict`
 
-- **records** —— A、AAAA、MX、NS、TXT、SOA、CNAME 紀錄
+- **records** —— A、AAAA、MX、NS、TXT、SOA、CNAME、CAA 紀錄
 - **whois** —— 解析後的註冊欄位 + 原始 WHOIS 文字
 - **email** —— SPF、DMARC、DKIM 設定狀態,並附分級 `assessment`
   (字母等級 A–F、一句總結,以及每項的 findings:含 severity 與建議修法)

@@ -8,11 +8,12 @@ these tools against assets you own or have explicit permission to assess.
 """
 
 import concurrent.futures
+import functools
 
 from mcp.server.fastmcp import FastMCP
 
 from recon_mcp.tools.dns import DNSRecon
-from recon_mcp.tools.tls import SSLAnalyzer
+from recon_mcp.tools.tls import SSLAnalyzer, quick_tls_check
 from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
 from recon_mcp.tools.portscan import PortScanner, PortScanError
 from recon_mcp.tools.subdomain import SubdomainEnumerator, SubdomainEnumError
@@ -35,7 +36,21 @@ mcp = FastMCP(
 )
 
 
+def _safe_tool(fn):
+    """Ensure a tool always returns a structured result: on any unexpected
+    exception, return {"error": ...} instead of propagating. functools.wraps
+    preserves the signature so FastMCP still builds the correct input schema."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+    return wrapper
+
+
 @mcp.tool()
+@_safe_tool
 def dns_recon(
     domain: str,
     checks: list[str] | None = None,
@@ -71,6 +86,7 @@ def dns_recon(
 
 
 @mcp.tool()
+@_safe_tool
 def tls_check(host: str, port: int = 443, timeout: float = 5.0) -> dict:
     """Inspect a host's SSL/TLS configuration and grade it.
 
@@ -92,6 +108,7 @@ def tls_check(host: str, port: int = 443, timeout: float = 5.0) -> dict:
 
 
 @mcp.tool()
+@_safe_tool
 def http_headers_audit(
     host: str,
     port: int | None = None,
@@ -121,6 +138,7 @@ def http_headers_audit(
 
 
 @mcp.tool()
+@_safe_tool
 def port_scan(
     host: str,
     ports: str | None = None,
@@ -150,6 +168,7 @@ def port_scan(
 
 
 @mcp.tool()
+@_safe_tool
 def subdomain_enum(
     domain: str,
     wordlist: str | None = None,
@@ -178,6 +197,7 @@ def subdomain_enum(
 
 
 @mcp.tool()
+@_safe_tool
 def recon_report(domain: str, timeout: float = 5.0) -> dict:
     """One-shot security posture report for a domain.
 
@@ -196,6 +216,7 @@ def recon_report(domain: str, timeout: float = 5.0) -> dict:
         component that errors is reported without breaking the rest.
     """
     domain = normalize_host(domain)
+    recon = DNSRecon(timeout=timeout)
 
     def _safe(fn):
         try:
@@ -203,13 +224,15 @@ def recon_report(domain: str, timeout: float = 5.0) -> dict:
         except Exception as e:  # never let one component sink the report
             return {"error": str(e)}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-        f_dns = pool.submit(_safe, lambda: DNSRecon(timeout=timeout).analyze_email_security(domain))
-        f_records = pool.submit(_safe, lambda: DNSRecon(timeout=timeout).dns_query_all(domain))
-        f_tls = pool.submit(_safe, lambda: SSLAnalyzer(timeout=timeout).analyze(domain))
+    # A quick single-handshake TLS check keeps the report fast; tls_check does the
+    # full analysis (cipher enumeration, vulnerabilities) on demand.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        f_email = pool.submit(_safe, lambda: recon.analyze_email_security(domain))
+        f_records = pool.submit(_safe, lambda: recon.dns_query_all(domain))
+        f_tls = pool.submit(_safe, lambda: quick_tls_check(domain, timeout=timeout))
         f_headers = pool.submit(_safe, lambda: HTTPHeadersAnalyzer(timeout=timeout).analyze(domain, port=443, use_ssl=True))
 
-        dns_result = {"email": {"assessment": (f_dns.result() or {}).get("assessment", {})},
+        dns_result = {"email": {"assessment": (f_email.result() or {}).get("assessment", {})},
                       "records": (f_records.result() or {}).get("records", {})}
         tls_result = f_tls.result()
         headers_result = f_headers.result()

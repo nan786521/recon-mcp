@@ -2,7 +2,6 @@
 
 import http.client
 import ssl
-import socket
 
 
 # Header check definitions: (header, weight, severity, description_zh, remediation_zh, check_fn_name)

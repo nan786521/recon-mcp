@@ -323,7 +323,7 @@ class SSLAnalyzer:
             ctx.maximum_version = max_version
 
             with socket.create_connection((hostname, port), timeout=self.timeout) as sock:
-                with ctx.wrap_socket(sock, server_hostname=hostname) as ssock:
+                with ctx.wrap_socket(sock, server_hostname=hostname):
                     return True
         except (ssl.SSLError, OSError, ConnectionError):
             return False
@@ -917,3 +917,95 @@ class SSLAnalyzer:
             return 'A+'
 
         return 'A'
+
+
+# ==================== Lightweight check (for overviews) ====================
+
+_MODERN_TLS = ('TLSv1.2', 'TLSv1.3')
+
+
+def quick_tls_check(host, port=443, timeout=5.0):
+    """A single-handshake TLS summary — far cheaper than SSLAnalyzer.analyze.
+
+    Used by recon_report for a fast overview: one TLS connection to learn the
+    negotiated protocol, certificate expiry, and chain validity, then a coarse
+    grade. For a full analysis (cipher suites, vulnerabilities) use tls_check.
+    """
+    result = {'grade': 'F', 'findings': [], 'vulnerabilities': []}
+    version = None
+    not_after = None
+    chain_valid = None
+
+    try:
+        ctx = ssl.create_default_context()
+        with socket.create_connection((host, port), timeout=timeout) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+                version = ssock.version()
+                cert = ssock.getpeercert() or {}
+                not_after = cert.get('notAfter')
+        chain_valid = True
+    except ssl.SSLError:
+        chain_valid = False
+    except OSError as e:
+        result['error'] = f'TLS connection failed: {e}'
+        result['findings'].append({
+            'severity': 'critical', 'title': 'No TLS / connection failed',
+            'description': str(e),
+        })
+        return result
+
+    # Chain failed verification — reconnect without verification to learn the version.
+    if chain_valid is False:
+        try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with socket.create_connection((host, port), timeout=timeout) as sock:
+                with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+                    version = ssock.version()
+        except OSError:
+            pass
+        result['findings'].append({
+            'severity': 'high', 'title': 'Untrusted certificate chain',
+            'description': 'Certificate did not validate against system trust store.',
+        })
+
+    expired = False
+    if not_after:
+        try:
+            exp = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
+            days = (exp - datetime.utcnow()).days
+            if days < 0:
+                expired = True
+            elif days < 30:
+                result['findings'].append({
+                    'severity': 'medium', 'title': 'Certificate expiring soon',
+                    'description': f'Certificate expires in {days} day(s).',
+                })
+        except ValueError:
+            pass
+
+    legacy = version is not None and version not in _MODERN_TLS
+
+    if expired:
+        result['grade'] = 'F'
+        result['findings'].append({
+            'severity': 'critical', 'title': 'Certificate expired',
+            'description': 'The server certificate has expired.',
+        })
+    elif legacy:
+        result['grade'] = 'C'
+        result['findings'].append({
+            'severity': 'medium', 'title': f'Legacy protocol ({version})',
+            'description': 'Server negotiated a protocol older than TLS 1.2.',
+        })
+    elif chain_valid is False:
+        result['grade'] = 'C'
+    elif version == 'TLSv1.3':
+        result['grade'] = 'A'
+    else:  # TLS 1.2 with a trusted chain
+        result['grade'] = 'B'
+
+    result['protocol'] = version
+    result['chain_valid'] = chain_valid
+    return result
