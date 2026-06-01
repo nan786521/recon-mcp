@@ -55,7 +55,7 @@
 
 ## 安裝
 
-需要 Python ≥ 3.10。
+需要 Python ≥ 3.10。可在 Linux、macOS、Windows 執行(CI 已驗證)。
 
 **推薦 —— 免 clone,透過 [uv](https://docs.astral.sh/uv/):**
 

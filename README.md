@@ -57,7 +57,7 @@ Need more detail on one area? The agent can call `dns_recon`, `tls_check`,
 
 ## Install
 
-Requires Python ≥ 3.10.
+Requires Python ≥ 3.10. Runs on Linux, macOS, and Windows (tested in CI).
 
 **Recommended — no clone, via [uv](https://docs.astral.sh/uv/):**
 
