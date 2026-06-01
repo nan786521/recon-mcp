@@ -1,25 +1,25 @@
-"""HTTP 安全標頭深度分析引擎 — 12 項安全標頭檢測與評分"""
+"""HTTP security header deep analysis engine — detection and scoring of 12 security headers"""
 
 import http.client
 import ssl
 import socket
 
 
-# 標頭檢查定義：(header, weight, severity, description_zh, remediation_zh, check_fn_name)
+# Header check definitions: (header, weight, severity, description_zh, remediation_zh, check_fn_name)
 HEADER_CHECKS = [
     {
         'header': 'Content-Security-Policy',
         'weight': 15,
         'severity': 'high',
-        'description': '限制腳本、樣式、圖片等資源的載入來源，有效防禦 XSS 攻擊',
-        'remediation': "設定 Content-Security-Policy: default-src 'self'; script-src 'self'",
+        'description': 'Restricts the load sources for scripts, styles, images, and other resources, effectively mitigating XSS attacks',
+        'remediation': "Set Content-Security-Policy: default-src 'self'; script-src 'self'",
         'check_fn': '_check_csp',
     },
     {
         'header': 'Strict-Transport-Security',
         'weight': 15,
         'severity': 'high',
-        'description': '強制瀏覽器僅透過 HTTPS 連線，防止降級攻擊',
+        'description': 'Forces the browser to connect only over HTTPS, preventing downgrade attacks',
         'remediation': 'Strict-Transport-Security: max-age=31536000; includeSubDomains; preload',
         'check_fn': '_check_hsts',
     },
@@ -27,96 +27,96 @@ HEADER_CHECKS = [
         'header': 'X-Frame-Options',
         'weight': 10,
         'severity': 'medium',
-        'description': '防止頁面被嵌入 iframe，防禦點擊劫持 (Clickjacking)',
-        'remediation': '設定 X-Frame-Options: DENY 或 SAMEORIGIN',
+        'description': 'Prevents the page from being embedded in an iframe, mitigating clickjacking',
+        'remediation': 'Set X-Frame-Options: DENY or SAMEORIGIN',
         'check_fn': '_check_x_frame_options',
     },
     {
         'header': 'X-Content-Type-Options',
         'weight': 10,
         'severity': 'medium',
-        'description': '防止瀏覽器進行 MIME 類型猜測，降低 MIME 混淆攻擊風險',
-        'remediation': '設定 X-Content-Type-Options: nosniff',
+        'description': 'Prevents the browser from MIME-type sniffing, reducing the risk of MIME confusion attacks',
+        'remediation': 'Set X-Content-Type-Options: nosniff',
         'check_fn': '_check_x_content_type_options',
     },
     {
         'header': 'X-XSS-Protection',
         'weight': 5,
         'severity': 'low',
-        'description': '啟用瀏覽器內建 XSS 過濾器（已棄用但部分瀏覽器仍支援）',
-        'remediation': '設定 X-XSS-Protection: 1; mode=block',
+        'description': "Enables the browser's built-in XSS filter (deprecated, but still supported by some browsers)",
+        'remediation': 'Set X-XSS-Protection: 1; mode=block',
         'check_fn': '_check_x_xss_protection',
     },
     {
         'header': 'Referrer-Policy',
         'weight': 8,
         'severity': 'medium',
-        'description': '控制 HTTP Referer 標頭的發送規則，保護使用者隱私',
-        'remediation': '設定 Referrer-Policy: strict-origin-when-cross-origin',
+        'description': 'Controls the rules for sending the HTTP Referer header, protecting user privacy',
+        'remediation': 'Set Referrer-Policy: strict-origin-when-cross-origin',
         'check_fn': '_check_referrer_policy',
     },
     {
         'header': 'Permissions-Policy',
         'weight': 8,
         'severity': 'medium',
-        'description': '限制瀏覽器 API 的使用（攝影機、麥克風、地理位置等）',
-        'remediation': '設定 Permissions-Policy: camera=(), microphone=(), geolocation=()',
+        'description': 'Restricts the use of browser APIs (camera, microphone, geolocation, etc.)',
+        'remediation': 'Set Permissions-Policy: camera=(), microphone=(), geolocation=()',
         'check_fn': '_check_permissions_policy',
     },
     {
         'header': 'Cache-Control',
         'weight': 5,
         'severity': 'low',
-        'description': '控制瀏覽器快取行為，防止敏感資料被快取',
-        'remediation': '設定 Cache-Control: no-store, no-cache, must-revalidate',
+        'description': 'Controls browser caching behavior, preventing sensitive data from being cached',
+        'remediation': 'Set Cache-Control: no-store, no-cache, must-revalidate',
         'check_fn': '_check_cache_control',
     },
     {
         'header': 'X-Permitted-Cross-Domain-Policies',
         'weight': 5,
         'severity': 'low',
-        'description': '限制 Flash/PDF 的跨域策略載入',
-        'remediation': '設定 X-Permitted-Cross-Domain-Policies: none',
+        'description': 'Restricts the cross-domain policy loading of Flash/PDF',
+        'remediation': 'Set X-Permitted-Cross-Domain-Policies: none',
         'check_fn': '_check_cross_domain_policies',
     },
     {
         'header': 'Cross-Origin-Embedder-Policy',
         'weight': 5,
         'severity': 'low',
-        'description': '要求跨來源資源明確授權嵌入，提升隔離安全性',
-        'remediation': '設定 Cross-Origin-Embedder-Policy: require-corp',
+        'description': 'Requires cross-origin resources to be explicitly authorized for embedding, improving isolation security',
+        'remediation': 'Set Cross-Origin-Embedder-Policy: require-corp',
         'check_fn': '_check_coep',
     },
     {
         'header': 'Cross-Origin-Opener-Policy',
         'weight': 5,
         'severity': 'low',
-        'description': '隔離瀏覽器上下文，防止跨來源視窗互動攻擊',
-        'remediation': '設定 Cross-Origin-Opener-Policy: same-origin',
+        'description': 'Isolates the browsing context, preventing cross-origin window interaction attacks',
+        'remediation': 'Set Cross-Origin-Opener-Policy: same-origin',
         'check_fn': '_check_coop',
     },
     {
         'header': 'Cross-Origin-Resource-Policy',
         'weight': 5,
         'severity': 'low',
-        'description': '限制資源被跨來源載入，防止資料洩漏',
-        'remediation': '設定 Cross-Origin-Resource-Policy: same-origin',
+        'description': 'Restricts resources from being loaded cross-origin, preventing data leakage',
+        'remediation': 'Set Cross-Origin-Resource-Policy: same-origin',
         'check_fn': '_check_corp',
     },
 ]
 
-# 總權重
+# Total weight
 TOTAL_WEIGHT = sum(h['weight'] for h in HEADER_CHECKS)
 
 
 class HTTPHeadersAnalyzer:
-    """HTTP 安全標頭深度分析器"""
+    """HTTP security header deep analyzer"""
 
     def __init__(self, timeout=5.0):
         self.timeout = timeout
 
     def analyze(self, target, port=80, use_ssl=False):
-        """分析目標的 HTTP 安全標頭"""
+        """Analyze the target's HTTP security headers"""
         result = {
             'target': target,
             'port': port,
@@ -130,16 +130,16 @@ class HTTPHeadersAnalyzer:
             'server': '',
         }
 
-        # 取得 headers
+        # Fetch headers
         headers = self._fetch_headers(target, port, use_ssl)
         if headers is None:
-            result['error'] = f'無法連線至 {target}:{port}'
+            result['error'] = f'Unable to connect to {target}:{port}'
             return result
 
         result['headers_raw'] = headers
         result['server'] = headers.get('server', '')
 
-        # 逐項檢查
+        # Check each item
         for check_def in HEADER_CHECKS:
             header_name = check_def['header']
             header_value = headers.get(header_name.lower())
@@ -161,7 +161,7 @@ class HTTPHeadersAnalyzer:
                 'remediation': check_def['remediation'] if check_result['status'] != 'pass' else '',
             })
 
-        # 統計
+        # Statistics
         for c in result['checks']:
             if c['status'] == 'pass':
                 result['summary']['passed'] += 1
@@ -170,19 +170,19 @@ class HTTPHeadersAnalyzer:
             else:
                 result['summary']['failed'] += 1
 
-        # 計算分數與評等
+        # Calculate score and grade
         result['score'] = self._calculate_score(result['checks'])
         result['grade'] = self._calculate_grade(result['score'])
 
-        # 轉換為標準 findings
+        # Convert to standard findings
         result['findings'] = self._to_findings(result['checks'])
 
         return result
 
-    # ==================== HTTP 連線 ====================
+    # ==================== HTTP connection ====================
 
     def _fetch_headers(self, target, port, use_ssl):
-        """取得 HTTP 回應標頭"""
+        """Fetch the HTTP response headers"""
         try:
             if use_ssl:
                 ctx = ssl.create_default_context()
@@ -196,7 +196,7 @@ class HTTPHeadersAnalyzer:
             resp = conn.getresponse()
             resp.read()
 
-            # 收集所有 headers (小寫 key)
+            # Collect all headers (lowercase key)
             headers = {}
             for key, val in resp.getheaders():
                 headers[key.lower()] = val
@@ -206,95 +206,95 @@ class HTTPHeadersAnalyzer:
         except Exception:
             return None
 
-    # ==================== 個別標頭檢查 ====================
+    # ==================== Individual header checks ====================
 
     def _check_exists(self, value):
-        """基本存在性檢查"""
+        """Basic existence check"""
         if value:
-            return {'status': 'pass', 'detail': '已設定'}
-        return {'status': 'fail', 'detail': '未設定'}
+            return {'status': 'pass', 'detail': 'Set'}
+        return {'status': 'fail', 'detail': 'Not set'}
 
     def _check_csp(self, value):
-        """Content-Security-Policy 檢查"""
+        """Content-Security-Policy check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定 CSP，無法限制資源載入來源'}
+            return {'status': 'fail', 'detail': 'CSP not set; cannot restrict resource load sources'}
 
         issues = []
         if "'unsafe-inline'" in value:
-            issues.append("含 'unsafe-inline'，允許內聯腳本")
+            issues.append("Contains 'unsafe-inline', allowing inline scripts")
         if "'unsafe-eval'" in value:
-            issues.append("含 'unsafe-eval'，允許動態程式碼執行")
+            issues.append("Contains 'unsafe-eval', allowing dynamic code execution")
         if 'default-src *' in value or "default-src '*'" in value:
-            issues.append("default-src 使用萬用字元 *")
+            issues.append("default-src uses the wildcard *")
         if 'script-src *' in value:
-            issues.append("script-src 使用萬用字元 *")
+            issues.append("script-src uses the wildcard *")
 
         if issues:
-            return {'status': 'warn', 'detail': '；'.join(issues)}
-        return {'status': 'pass', 'detail': 'CSP 設定良好'}
+            return {'status': 'warn', 'detail': '; '.join(issues)}
+        return {'status': 'pass', 'detail': 'CSP is well configured'}
 
     def _check_hsts(self, value):
-        """Strict-Transport-Security 檢查"""
+        """Strict-Transport-Security check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定 HSTS，瀏覽器不會強制 HTTPS'}
+            return {'status': 'fail', 'detail': 'HSTS not set; the browser will not enforce HTTPS'}
 
         issues = []
-        # 解析 max-age
+        # Parse max-age
         if 'max-age=' in value:
             try:
                 max_age = int(value.split('max-age=')[1].split(';')[0].strip())
                 if max_age < 31536000:
-                    issues.append(f'max-age={max_age}，建議至少 31536000（1 年）')
+                    issues.append(f'max-age={max_age}; recommend at least 31536000 (1 year)')
             except (ValueError, IndexError):
-                issues.append('max-age 無法解析')
+                issues.append('max-age could not be parsed')
         else:
-            issues.append('缺少 max-age 指令')
+            issues.append('Missing the max-age directive')
 
         if 'includesubdomains' not in value.lower():
-            issues.append('未包含 includeSubDomains')
+            issues.append('Does not include includeSubDomains')
 
         if issues:
-            return {'status': 'warn', 'detail': '；'.join(issues)}
-        return {'status': 'pass', 'detail': 'HSTS 設定完善'}
+            return {'status': 'warn', 'detail': '; '.join(issues)}
+        return {'status': 'pass', 'detail': 'HSTS is fully configured'}
 
     def _check_x_frame_options(self, value):
-        """X-Frame-Options 檢查"""
+        """X-Frame-Options check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定，頁面可能被嵌入惡意 iframe'}
+            return {'status': 'fail', 'detail': 'Not set; the page may be embedded in a malicious iframe'}
 
         val = value.upper().strip()
         if val in ('DENY', 'SAMEORIGIN'):
-            return {'status': 'pass', 'detail': f'設定為 {val}'}
+            return {'status': 'pass', 'detail': f'Set to {val}'}
         if 'ALLOW-FROM' in val:
-            return {'status': 'warn', 'detail': 'ALLOW-FROM 已被多數瀏覽器棄用'}
-        return {'status': 'warn', 'detail': f'非預期值: {value}'}
+            return {'status': 'warn', 'detail': 'ALLOW-FROM is deprecated in most browsers'}
+        return {'status': 'warn', 'detail': f'Unexpected value: {value}'}
 
     def _check_x_content_type_options(self, value):
-        """X-Content-Type-Options 檢查"""
+        """X-Content-Type-Options check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定，瀏覽器可能進行 MIME 猜測'}
+            return {'status': 'fail', 'detail': 'Not set; the browser may perform MIME sniffing'}
 
         if value.strip().lower() == 'nosniff':
-            return {'status': 'pass', 'detail': '已設定 nosniff'}
-        return {'status': 'warn', 'detail': f'非預期值: {value}，應為 nosniff'}
+            return {'status': 'pass', 'detail': 'nosniff is set'}
+        return {'status': 'warn', 'detail': f'Unexpected value: {value}; should be nosniff'}
 
     def _check_x_xss_protection(self, value):
-        """X-XSS-Protection 檢查"""
+        """X-XSS-Protection check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定（此標頭已棄用，但仍建議設定）'}
+            return {'status': 'fail', 'detail': 'Not set (this header is deprecated, but still recommended)'}
 
         if '1' in value and 'mode=block' in value:
-            return {'status': 'pass', 'detail': '已啟用並設定 mode=block'}
+            return {'status': 'pass', 'detail': 'Enabled with mode=block'}
         if value.strip() == '0':
-            return {'status': 'warn', 'detail': '已明確停用 XSS 過濾器'}
+            return {'status': 'warn', 'detail': 'XSS filter is explicitly disabled'}
         if '1' in value:
-            return {'status': 'warn', 'detail': '已啟用但未設定 mode=block'}
-        return {'status': 'warn', 'detail': f'非預期值: {value}'}
+            return {'status': 'warn', 'detail': 'Enabled but mode=block is not set'}
+        return {'status': 'warn', 'detail': f'Unexpected value: {value}'}
 
     def _check_referrer_policy(self, value):
-        """Referrer-Policy 檢查"""
+        """Referrer-Policy check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定，瀏覽器將使用預設 Referrer 策略'}
+            return {'status': 'fail', 'detail': 'Not set; the browser will use the default Referrer policy'}
 
         safe_policies = {
             'no-referrer', 'no-referrer-when-downgrade',
@@ -303,15 +303,15 @@ class HTTPHeadersAnalyzer:
         }
         val = value.strip().lower()
         if val in safe_policies:
-            return {'status': 'pass', 'detail': f'策略: {val}'}
+            return {'status': 'pass', 'detail': f'Policy: {val}'}
         if val == 'unsafe-url':
-            return {'status': 'warn', 'detail': 'unsafe-url 會洩漏完整 URL'}
-        return {'status': 'warn', 'detail': f'非預期值: {value}'}
+            return {'status': 'warn', 'detail': 'unsafe-url leaks the full URL'}
+        return {'status': 'warn', 'detail': f'Unexpected value: {value}'}
 
     def _check_permissions_policy(self, value):
-        """Permissions-Policy 檢查"""
+        """Permissions-Policy check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定，瀏覽器 API 未受限制'}
+            return {'status': 'fail', 'detail': 'Not set; browser APIs are unrestricted'}
 
         restricted = []
         for feature in ('camera', 'microphone', 'geolocation', 'payment'):
@@ -319,67 +319,67 @@ class HTTPHeadersAnalyzer:
                 restricted.append(feature)
 
         if len(restricted) >= 2:
-            return {'status': 'pass', 'detail': f"已限制: {', '.join(restricted)}"}
-        return {'status': 'warn', 'detail': '已設定但限制項目較少，建議增加'}
+            return {'status': 'pass', 'detail': f"Restricted: {', '.join(restricted)}"}
+        return {'status': 'warn', 'detail': 'Set, but few items are restricted; recommend adding more'}
 
     def _check_cache_control(self, value):
-        """Cache-Control 檢查"""
+        """Cache-Control check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定快取控制'}
+            return {'status': 'fail', 'detail': 'Cache control not set'}
 
         val = value.lower()
         if 'no-store' in val or 'private' in val:
-            return {'status': 'pass', 'detail': '已設定適當的快取控制'}
+            return {'status': 'pass', 'detail': 'Appropriate cache control is set'}
         if 'public' in val:
-            return {'status': 'warn', 'detail': '設定為 public，敏感頁面不應被公開快取'}
-        return {'status': 'pass', 'detail': f'快取策略: {value}'}
+            return {'status': 'warn', 'detail': 'Set to public; sensitive pages should not be publicly cached'}
+        return {'status': 'pass', 'detail': f'Cache policy: {value}'}
 
     def _check_cross_domain_policies(self, value):
-        """X-Permitted-Cross-Domain-Policies 檢查"""
+        """X-Permitted-Cross-Domain-Policies check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定跨域策略限制'}
+            return {'status': 'fail', 'detail': 'Cross-domain policy restriction not set'}
 
         val = value.strip().lower()
         if val in ('none', 'master-only'):
-            return {'status': 'pass', 'detail': f'策略: {val}'}
-        return {'status': 'warn', 'detail': f'策略 {val} 可能過於寬鬆'}
+            return {'status': 'pass', 'detail': f'Policy: {val}'}
+        return {'status': 'warn', 'detail': f'Policy {val} may be too permissive'}
 
     def _check_coep(self, value):
-        """Cross-Origin-Embedder-Policy 檢查"""
+        """Cross-Origin-Embedder-Policy check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定 COEP'}
+            return {'status': 'fail', 'detail': 'COEP not set'}
 
         if 'require-corp' in value.lower():
-            return {'status': 'pass', 'detail': '已設定 require-corp'}
+            return {'status': 'pass', 'detail': 'require-corp is set'}
         if 'credentialless' in value.lower():
-            return {'status': 'pass', 'detail': '已設定 credentialless'}
-        return {'status': 'warn', 'detail': f'值: {value}'}
+            return {'status': 'pass', 'detail': 'credentialless is set'}
+        return {'status': 'warn', 'detail': f'Value: {value}'}
 
     def _check_coop(self, value):
-        """Cross-Origin-Opener-Policy 檢查"""
+        """Cross-Origin-Opener-Policy check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定 COOP'}
+            return {'status': 'fail', 'detail': 'COOP not set'}
 
         if 'same-origin' in value.lower():
-            return {'status': 'pass', 'detail': '已設定 same-origin'}
-        return {'status': 'warn', 'detail': f'值: {value}'}
+            return {'status': 'pass', 'detail': 'same-origin is set'}
+        return {'status': 'warn', 'detail': f'Value: {value}'}
 
     def _check_corp(self, value):
-        """Cross-Origin-Resource-Policy 檢查"""
+        """Cross-Origin-Resource-Policy check"""
         if not value:
-            return {'status': 'fail', 'detail': '未設定 CORP'}
+            return {'status': 'fail', 'detail': 'CORP not set'}
 
         val = value.strip().lower()
         if val in ('same-origin', 'same-site'):
-            return {'status': 'pass', 'detail': f'策略: {val}'}
+            return {'status': 'pass', 'detail': f'Policy: {val}'}
         if val == 'cross-origin':
-            return {'status': 'warn', 'detail': '設定為 cross-origin，允許跨域載入'}
-        return {'status': 'warn', 'detail': f'值: {value}'}
+            return {'status': 'warn', 'detail': 'Set to cross-origin, allowing cross-domain loading'}
+        return {'status': 'warn', 'detail': f'Value: {value}'}
 
-    # ==================== 評分 ====================
+    # ==================== Scoring ====================
 
     def _calculate_score(self, checks):
-        """加權計分（0-100）"""
+        """Weighted scoring (0-100)"""
         earned = 0
         for c in checks:
             if c['status'] == 'pass':
@@ -390,7 +390,7 @@ class HTTPHeadersAnalyzer:
         return round(earned / TOTAL_WEIGHT * 100)
 
     def _calculate_grade(self, score):
-        """分數轉評等"""
+        """Convert score to grade"""
         if score >= 95:
             return 'A+'
         if score >= 85:
@@ -403,10 +403,10 @@ class HTTPHeadersAnalyzer:
             return 'D'
         return 'F'
 
-    # ==================== 轉換 ====================
+    # ==================== Conversion ====================
 
     def _to_findings(self, checks):
-        """轉換為標準 finding 格式"""
+        """Convert to the standard finding format"""
         findings = []
         for c in checks:
             if c['status'] == 'pass':
@@ -415,9 +415,9 @@ class HTTPHeadersAnalyzer:
                 'id': f"http-header-{c['header'].lower().replace('-', '_')}",
                 'category': 'http_headers',
                 'severity': c['severity'] if c['status'] == 'fail' else 'low',
-                'title': f"{'缺少' if c['status'] == 'fail' else '需改善'} {c['header']}",
+                'title': f"{'Missing' if c['status'] == 'fail' else 'Needs improvement'} {c['header']}",
                 'description': c['detail'],
-                'evidence': f"當前值: {c['value'] or '(未設定)'}",
+                'evidence': f"Current value: {c['value'] or '(not set)'}",
                 'remediation': c['remediation'],
             })
         return findings
