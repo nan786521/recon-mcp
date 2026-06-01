@@ -15,6 +15,7 @@ from recon_mcp.tools.dns import DNSRecon
 from recon_mcp.tools.tls import SSLAnalyzer
 from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
 from recon_mcp.tools.portscan import PortScanner, PortScanError
+from recon_mcp.tools.subdomain import SubdomainEnumerator, SubdomainEnumError
 from recon_mcp.tools.report import build_report
 
 mcp = FastMCP("recon-mcp")
@@ -131,6 +132,34 @@ def port_scan(
         return PortScanner(timeout=timeout).scan(host, ports=ports)
     except PortScanError as e:
         return {"host": host, "error": str(e)}
+
+
+@mcp.tool()
+def subdomain_enum(
+    domain: str,
+    wordlist: str | None = None,
+    timeout: float = 3.0,
+) -> dict:
+    """Discover subdomains of a domain via DNS resolution.
+
+    Probes candidate subdomain labels against the domain and returns those that
+    resolve. Passive recon (ordinary DNS A lookups), capped at 512 candidates
+    per call. Enumerate only domains you are authorized to assess.
+
+    Args:
+        domain: The base domain, e.g. "example.com".
+        wordlist: Comma-separated subdomain labels to try (e.g. "www,api,dev").
+            Omit to use a built-in list of common labels.
+        timeout: Per-query DNS timeout in seconds.
+
+    Returns:
+        A dict with domain, checked (count), found_count, and found (each with
+        subdomain and its resolved ips).
+    """
+    try:
+        return SubdomainEnumerator(timeout=timeout).enumerate(domain, wordlist=wordlist)
+    except SubdomainEnumError as e:
+        return {"domain": domain, "error": str(e)}
 
 
 @mcp.tool()

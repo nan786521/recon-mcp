@@ -25,6 +25,7 @@
 |------|------|
 | `recon_report` | **從這開始。** 一次呼叫 → 同時檢查 DNS、TLS、HTTP 標頭,給整體評級 |
 | `dns_recon` | DNS + WHOIS + 郵件安全(SPF/DMARC/DKIM),含分級 |
+| `subdomain_enum` | 透過 DNS 探索子網域(單次 ≤512 候選),內建或自訂字典 |
 | `tls_check` | 憑證、協定、加密套件、已知 TLS 漏洞,含分級 |
 | `http_headers_audit` | HTTP 安全標頭(CSP、HSTS、X-Frame-Options……),含分級 |
 | `port_scan` | 單一主機 TCP 埠掃描(單次 ≤1024 埠),回報開放埠 + 服務 |
@@ -118,6 +119,12 @@ claude mcp add recon -- uvx recon-kit-mcp
   (字母等級 A–F、一句總結,以及每項的 findings:含 severity 與建議修法)
 
 `checks` 可填 `["records", "whois", "email"]` 的任意子集;省略則三項全跑。
+
+### `subdomain_enum(domain, wordlist?, timeout?) -> dict`
+
+透過 DNS 解析候選子網域,回傳實際存在的。`wordlist` 為逗號分隔的標籤
+(`"www,api,dev"`);省略則用內建常見清單。單次上限 512 個候選。回傳
+`checked`、`found_count`、`found`(各含 `subdomain` 與其 `ips`)。
 
 ### `tls_check(host, port=443, timeout?) -> dict`
 

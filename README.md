@@ -27,6 +27,7 @@ instead of parsing console output.
 |------|--------------|
 | `recon_report` | **Start here.** One call → DNS, TLS, and HTTP headers checked together, with an overall grade |
 | `dns_recon` | DNS + WHOIS + email security (SPF/DMARC/DKIM), graded |
+| `subdomain_enum` | Discover subdomains via DNS (≤512 candidates/call), built-in or custom wordlist |
 | `tls_check` | Certificate, protocols, ciphers, and known TLS vulnerabilities, graded |
 | `http_headers_audit` | HTTP security headers (CSP, HSTS, X-Frame-Options, …), graded |
 | `port_scan` | TCP port scan of one host (≤1024 ports/call), open ports + services |
@@ -121,6 +122,13 @@ The best starting point; use the tools below for raw detail.
   recommended fix)
 
 `checks` is any subset of `["records", "whois", "email"]`; omit it to run all.
+
+### `subdomain_enum(domain, wordlist?, timeout?) -> dict`
+
+Resolves candidate subdomains via DNS and returns the ones that exist. `wordlist`
+is comma-separated labels (`"www,api,dev"`); omit it for a built-in common list.
+Capped at 512 candidates per call. Returns `checked`, `found_count`, and `found`
+(each with `subdomain` and its `ips`).
 
 ### `tls_check(host, port=443, timeout?) -> dict`
 
