@@ -1,5 +1,5 @@
 [project]
-name = "recon-mcp"
+name = "recon-kit-mcp"
 version = "0.1.0"
 description = "An MCP server that gives AI coding agents (Claude Code, Codex, Cline) safe, structured network & security reconnaissance tools — DNS, WHOIS, TLS, HTTP headers, and port scanning. For authorized testing and education only."
 readme = "README.md"
@@ -33,7 +33,7 @@ Issues = "https://github.com/nan786521/recon-mcp/issues"
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-recon-mcp = "recon_mcp.server:main"
+recon-kit-mcp = "recon_mcp.server:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

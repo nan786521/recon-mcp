@@ -9,4 +9,4 @@ startCommand:
   commandFunction:
     # Produces the CLI command Smithery uses to start the server over stdio.
     |-
-    (config) => ({ command: 'uvx', args: ['recon-mcp'], env: { PYTHONUNBUFFERED: '1' } })
+    (config) => ({ command: 'uvx', args: ['recon-kit-mcp'], env: { PYTHONUNBUFFERED: '1' } })

@@ -37,7 +37,7 @@ Requires Python ≥ 3.10.
 **Recommended — no clone, via [uv](https://docs.astral.sh/uv/):**
 
 ```bash
-uvx recon-mcp
+uvx recon-kit-mcp
 ```
 
 **Or from source (for development):**
@@ -58,7 +58,7 @@ pip install -e .
 Add the server (stdio transport). With `uvx` you don't need an absolute path:
 
 ```bash
-claude mcp add recon -- uvx recon-mcp
+claude mcp add recon -- uvx recon-kit-mcp
 ```
 
 Or add it manually to any MCP client config:
@@ -68,13 +68,13 @@ Or add it manually to any MCP client config:
   "mcpServers": {
     "recon": {
       "command": "uvx",
-      "args": ["recon-mcp"]
+      "args": ["recon-kit-mcp"]
     }
   }
 }
 ```
 
-(From a source checkout, point the command at `/absolute/path/to/.venv/bin/recon-mcp` instead.)
+(From a source checkout, point the command at `/absolute/path/to/.venv/bin/recon-kit-mcp` instead.)
 
 Then ask the agent things like *"run dns_recon on example.com and tell me if its
 email security is properly configured"* or *"audit the TLS and security headers

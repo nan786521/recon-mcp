@@ -35,7 +35,7 @@
 **推薦 —— 免 clone,透過 [uv](https://docs.astral.sh/uv/):**
 
 ```bash
-uvx recon-mcp
+uvx recon-kit-mcp
 ```
 
 **或從原始碼安裝(開發用):**
@@ -56,7 +56,7 @@ pip install -e .
 新增 server(stdio transport)。用 `uvx` 不需要絕對路徑:
 
 ```bash
-claude mcp add recon -- uvx recon-mcp
+claude mcp add recon -- uvx recon-kit-mcp
 ```
 
 或手動加進任何 MCP 用戶端設定:
@@ -66,13 +66,13 @@ claude mcp add recon -- uvx recon-mcp
   "mcpServers": {
     "recon": {
       "command": "uvx",
-      "args": ["recon-mcp"]
+      "args": ["recon-kit-mcp"]
     }
   }
 }
 ```
 
-(從原始碼 checkout 時,改把 command 指向 `/絕對路徑/到/.venv/bin/recon-mcp`。)
+(從原始碼 checkout 時,改把 command 指向 `/絕對路徑/到/.venv/bin/recon-kit-mcp`。)
 
 接著就能對 agent 說:*「用 dns_recon 查 example.com,告訴我它的郵件安全
 設定有沒有做好」* 或 *「稽核 example.com 的 TLS 與安全標頭」*。
