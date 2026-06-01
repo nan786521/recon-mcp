@@ -3,6 +3,7 @@
 **English** | [繁體中文](./README.zh-TW.md)
 
 [![CI](https://github.com/nan786521/recon-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/nan786521/recon-mcp/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/recon-kit-mcp)](https://pypi.org/project/recon-kit-mcp/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
