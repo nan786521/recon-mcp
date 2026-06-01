@@ -12,6 +12,7 @@ from mcp.server.fastmcp import FastMCP
 from recon_mcp.tools.dns import DNSRecon
 from recon_mcp.tools.tls import SSLAnalyzer
 from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
+from recon_mcp.tools.portscan import PortScanner, PortScanError
 
 mcp = FastMCP("recon-mcp")
 
@@ -98,6 +99,35 @@ def http_headers_audit(
     if port is None:
         port = 443 if use_ssl else 80
     return HTTPHeadersAnalyzer(timeout=timeout).analyze(host, port=port, use_ssl=use_ssl)
+
+
+@mcp.tool()
+def port_scan(
+    host: str,
+    ports: str | None = None,
+    timeout: float = 1.0,
+) -> dict:
+    """TCP connect scan of a single host, reporting open ports and services.
+
+    Scoped to a single host with a hard cap of 1024 ports per call — it is recon
+    for one authorized target, not a mass scanner. Only scan hosts you own or
+    have explicit permission to assess.
+
+    Args:
+        host: Hostname or IP to scan, e.g. "example.com".
+        ports: Ports to scan as a string: "22,80,443", a range "1-1024", or a
+            mix "1-100,443,8080". Omit to scan a built-in set of common ports.
+        timeout: Per-port connection timeout in seconds.
+
+    Returns:
+        A dict with: host, ip, scanned (count), open_count, and open_ports
+        (each with port and service). Returns an error field on bad input or
+        DNS failure.
+    """
+    try:
+        return PortScanner(timeout=timeout).scan(host, ports=ports)
+    except PortScanError as e:
+        return {"host": host, "error": str(e)}
 
 
 def main() -> None:

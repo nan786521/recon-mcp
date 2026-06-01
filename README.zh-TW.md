@@ -25,8 +25,7 @@
 | `dns_recon` | 被動式 DNS + WHOIS + 郵件安全(SPF/DMARC/DKIM)查詢,並附郵件安全分級判讀 |
 | `tls_check` | SSL/TLS 檢查:憑證、協定版本、加密套件、forward secrecy、HSTS、OCSP、已知協定漏洞 —— 含分級 |
 | `http_headers_audit` | 稽核 HTTP 安全回應標頭(CSP、HSTS、X-Frame-Options、COEP/COOP/CORP……)—— 含分級 |
-
-藍圖:`port_scan`(含速率限制、需主動啟用、僅限授權目標)。
+| `port_scan` | 單一主機 TCP connect 掃描(單次上限 1024 埠),回報開放埠與服務 |
 
 ## 範例
 
@@ -123,6 +122,13 @@ claude mcp add recon -- uvx recon-kit-mcp
 
 回傳 `grade`、`score`、觀察到的安全標頭,以及每項標頭附建議的 `findings`
 清單。預設走 HTTPS(port 443)。
+
+### `port_scan(host, ports?, timeout?) -> dict`
+
+對**單一**主機做 TCP connect 掃描。`ports` 為字串 —— `"22,80,443"`、範圍
+`"1-1024"`、或混合;省略則掃內建常見埠集合。單次硬上限 1024 埠(單一主機
+偵察,非大規模掃描)。回傳 `host`、`ip`、`scanned`、`open_count`、
+`open_ports`(埠 + 服務)。僅掃描你有授權檢測的主機。
 
 ## 授權
 

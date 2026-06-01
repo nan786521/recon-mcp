@@ -27,8 +27,7 @@ instead of parsing console output.
 | `dns_recon` | Passive DNS + WHOIS + email-security (SPF/DMARC/DKIM) lookup, with a graded email-security assessment |
 | `tls_check` | SSL/TLS inspection: certificate, protocol versions, cipher suites, forward secrecy, HSTS, OCSP, known protocol vulnerabilities — graded |
 | `http_headers_audit` | Audits HTTP security response headers (CSP, HSTS, X-Frame-Options, COEP/COOP/CORP, …) — graded |
-
-Roadmap: `port_scan` (rate-limited, opt-in, authorized targets only).
+| `port_scan` | TCP connect scan of a single host (capped at 1024 ports/call), reporting open ports and services |
 
 ## Example
 
@@ -129,6 +128,14 @@ and a `findings` list.
 
 Returns `grade`, `score`, the observed security headers, and a `findings`
 list with a recommendation per header. Defaults to HTTPS (port 443).
+
+### `port_scan(host, ports?, timeout?) -> dict`
+
+TCP connect scan of a **single** host. `ports` is a string — `"22,80,443"`, a
+range `"1-1024"`, or a mix — and omitting it scans a built-in common-port set.
+Hard-capped at 1024 ports per call (single-host recon, not mass scanning).
+Returns `host`, `ip`, `scanned`, `open_count`, and `open_ports` (port +
+service). Scan only hosts you are authorized to assess.
 
 ## License
 
