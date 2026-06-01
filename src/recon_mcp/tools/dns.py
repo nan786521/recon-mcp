@@ -222,6 +222,7 @@ class DNSRecon:
         if not result['dkim']:
             result['dkim'] = {'found': False}
 
+        result['assessment'] = grade_email_security(result)
         return result
 
     # ==================== DNS packet build / parse ====================
@@ -373,3 +374,109 @@ class DNSRecon:
             if part.startswith('p='):
                 return part[2:]
         return 'unknown'
+
+
+# ==================== Email-security grading ====================
+
+def grade_email_security(email):
+    """Turn raw SPF/DMARC/DKIM findings into a graded assessment.
+
+    Returns a dict with an overall letter grade (A–F), a one-line summary, and a
+    list of findings. Each finding has:
+        severity: "ok" | "info" | "warning" | "critical"
+        check:    "SPF" | "DKIM" | "DMARC"
+        message:  human-readable explanation
+        recommendation: suggested fix (omitted when severity is "ok")
+    """
+    findings = []
+    score = 100
+
+    spf = email.get('spf', {})
+    dmarc = email.get('dmarc', {})
+    dkim = email.get('dkim', {})
+
+    # --- SPF ---
+    if not spf.get('found'):
+        score -= 30
+        findings.append({
+            'severity': 'warning', 'check': 'SPF',
+            'message': 'No SPF record. Receivers cannot tell which servers may send for this domain.',
+            'recommendation': 'Publish a TXT record, e.g. "v=spf1 include:_spf.google.com -all".',
+        })
+    else:
+        mech = spf.get('all_mechanism')
+        if mech == 'pass':  # +all — anyone may send
+            score -= 40
+            findings.append({
+                'severity': 'critical', 'check': 'SPF',
+                'message': 'SPF ends with "+all", which authorizes any server to send as this domain.',
+                'recommendation': 'Change the "all" mechanism to "-all" (hard fail).',
+            })
+        elif mech in ('softfail', 'neutral'):
+            score -= 5
+            findings.append({
+                'severity': 'info', 'check': 'SPF',
+                'message': f'SPF present but uses "{mech}" ("~all"/"?all"); spoofed mail is only flagged, not rejected.',
+                'recommendation': 'Tighten the "all" mechanism to "-all" once you confirm all senders are listed.',
+            })
+        else:  # fail / hardfail
+            findings.append({
+                'severity': 'ok', 'check': 'SPF',
+                'message': 'SPF present with a hard fail ("-all").',
+            })
+
+    # --- DKIM ---
+    if not dkim.get('found'):
+        score -= 20
+        findings.append({
+            'severity': 'warning', 'check': 'DKIM',
+            'message': 'No DKIM record found on common selectors. Mail is not cryptographically signed (or uses a custom selector).',
+            'recommendation': 'Enable DKIM signing in your mail provider and publish the public key.',
+        })
+    else:
+        findings.append({
+            'severity': 'ok', 'check': 'DKIM',
+            'message': f'DKIM present (selector "{dkim.get("selector")}").',
+        })
+
+    # --- DMARC ---
+    if not dmarc.get('found'):
+        score -= 30
+        findings.append({
+            'severity': 'warning', 'check': 'DMARC',
+            'message': 'No DMARC record. Receivers have no policy for handling spoofed mail, and you get no abuse reports.',
+            'recommendation': 'Start with "v=DMARC1; p=none; rua=mailto:you@domain" to monitor, then move to p=quarantine/reject.',
+        })
+    else:
+        policy = dmarc.get('policy')
+        if policy in ('reject', 'quarantine'):
+            findings.append({
+                'severity': 'ok', 'check': 'DMARC',
+                'message': f'DMARC enforced (p={policy}).',
+            })
+        else:  # none / unknown
+            score -= 10
+            findings.append({
+                'severity': 'info', 'check': 'DMARC',
+                'message': f'DMARC present but not enforced (p={policy}); it only monitors, spoofed mail is still delivered.',
+                'recommendation': 'After reviewing reports, raise the policy to p=quarantine then p=reject.',
+            })
+
+    score = max(score, 0)
+    grade = (
+        'A' if score >= 90 else
+        'B' if score >= 75 else
+        'C' if score >= 60 else
+        'D' if score >= 40 else 'F'
+    )
+
+    worst = next((s for s in ('critical', 'warning', 'info')
+                  if any(f['severity'] == s for f in findings)), 'ok')
+    summary = {
+        'ok': 'SPF, DKIM, and DMARC are all configured and enforced.',
+        'info': 'Core records present; some hardening recommended.',
+        'warning': 'One or more email-authentication records are missing.',
+        'critical': 'A misconfiguration actively allows spoofing.',
+    }[worst]
+
+    return {'grade': grade, 'score': score, 'summary': summary, 'findings': findings}

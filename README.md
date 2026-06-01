@@ -71,7 +71,9 @@ dns_recon(domain: str, checks?: ["records"|"whois"|"email"], timeout?: float) ->
 
 - **records** — A, AAAA, MX, NS, TXT, SOA, CNAME records
 - **whois** — parsed registration fields + raw WHOIS text
-- **email** — SPF, DMARC, and DKIM posture
+- **email** — SPF, DMARC, and DKIM posture, plus a graded `assessment`
+  (letter grade A–F, a summary, and per-check findings with severity and a
+  recommended fix) so the agent gets an actionable verdict, not just raw records
 
 Omit `checks` to run all three.
 
