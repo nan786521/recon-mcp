@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "recon-kit-mcp",
   "display_name": "recon-kit-mcp — network & security recon",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Safe, structured network & security reconnaissance tools (DNS, WHOIS, TLS, HTTP security headers) for AI coding agents — each with a graded verdict.",
-  "long_description": "An MCP server that gives AI coding agents (Claude Code, Codex, Cline) read-only network and security reconnaissance tools: dns_recon (DNS/WHOIS/SPF-DMARC-DKIM with a graded email-security assessment), tls_check (certificate, protocols, ciphers, known vulnerabilities), http_headers_audit (CSP, HSTS, and other security headers), and port_scan (single-host TCP connect scan, capped at 1024 ports). Returns clean JSON with letter grades. For authorized testing, CTF, and education only.",
+  "long_description": "An MCP server that gives AI coding agents (Claude Code, Codex, Cline) read-only network and security reconnaissance tools: recon_report (one-call DNS+TLS+headers overview with an overall grade), dns_recon, tls_check, http_headers_audit, and port_scan. Returns clean JSON with letter grades. For authorized testing, CTF, and education only.",
   "author": {
     "name": "nan786521",
     "url": "https://github.com/nan786521"

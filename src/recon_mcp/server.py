@@ -7,12 +7,15 @@ Intended for AUTHORIZED security testing, CTF, and education only. Only run
 these tools against assets you own or have explicit permission to assess.
 """
 
+import concurrent.futures
+
 from mcp.server.fastmcp import FastMCP
 
 from recon_mcp.tools.dns import DNSRecon
 from recon_mcp.tools.tls import SSLAnalyzer
 from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
 from recon_mcp.tools.portscan import PortScanner, PortScanError
+from recon_mcp.tools.report import build_report
 
 mcp = FastMCP("recon-mcp")
 
@@ -128,6 +131,44 @@ def port_scan(
         return PortScanner(timeout=timeout).scan(host, ports=ports)
     except PortScanError as e:
         return {"host": host, "error": str(e)}
+
+
+@mcp.tool()
+def recon_report(domain: str, timeout: float = 5.0) -> dict:
+    """One-shot security posture report for a domain.
+
+    Runs DNS/email, TLS, and HTTP-header recon concurrently and returns a
+    single graded overview: an overall grade (as weak as the weakest
+    component), each component's grade, and the actionable issues found. Use
+    this for a quick full picture; call the individual tools for raw detail.
+
+    Args:
+        domain: The domain to assess, e.g. "example.com".
+        timeout: Per-connection network timeout in seconds.
+
+    Returns:
+        A dict with domain, ip, overall_grade, summary, and components
+        (email / tls / headers), each with a grade and a list of issues. A
+        component that errors is reported without breaking the rest.
+    """
+    def _safe(fn):
+        try:
+            return fn()
+        except Exception as e:  # never let one component sink the report
+            return {"error": str(e)}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        f_dns = pool.submit(_safe, lambda: DNSRecon(timeout=timeout).analyze_email_security(domain))
+        f_records = pool.submit(_safe, lambda: DNSRecon(timeout=timeout).dns_query_all(domain))
+        f_tls = pool.submit(_safe, lambda: SSLAnalyzer(timeout=timeout).analyze(domain))
+        f_headers = pool.submit(_safe, lambda: HTTPHeadersAnalyzer(timeout=timeout).analyze(domain, port=443, use_ssl=True))
+
+        dns_result = {"email": {"assessment": (f_dns.result() or {}).get("assessment", {})},
+                      "records": (f_records.result() or {}).get("records", {})}
+        tls_result = f_tls.result()
+        headers_result = f_headers.result()
+
+    return build_report(domain, dns_result, tls_result, headers_result)
 
 
 def main() -> None:

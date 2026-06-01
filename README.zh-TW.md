@@ -22,35 +22,34 @@
 
 | 工具 | 功能 |
 |------|------|
-| `dns_recon` | 被動式 DNS + WHOIS + 郵件安全(SPF/DMARC/DKIM)查詢,並附郵件安全分級判讀 |
-| `tls_check` | SSL/TLS 檢查:憑證、協定版本、加密套件、forward secrecy、HSTS、OCSP、已知協定漏洞 —— 含分級 |
-| `http_headers_audit` | 稽核 HTTP 安全回應標頭(CSP、HSTS、X-Frame-Options、COEP/COOP/CORP……)—— 含分級 |
-| `port_scan` | 單一主機 TCP connect 掃描(單次上限 1024 埠),回報開放埠與服務 |
+| `recon_report` | **從這開始。** 一次呼叫 → 同時檢查 DNS、TLS、HTTP 標頭,給整體評級 |
+| `dns_recon` | DNS + WHOIS + 郵件安全(SPF/DMARC/DKIM),含分級 |
+| `tls_check` | 憑證、協定、加密套件、已知 TLS 漏洞,含分級 |
+| `http_headers_audit` | HTTP 安全標頭(CSP、HSTS、X-Frame-Options……),含分級 |
+| `port_scan` | 單一主機 TCP 埠掃描(單次 ≤1024 埠),回報開放埠 + 服務 |
 
 ## 範例
 
-對 agent 說「檢查 example.com 的郵件安全」—— 它會呼叫 `dns_recon`,拿回一份
-**可直接行動的分級判讀**,而不是一堆原始紀錄:
+直接對 agent 說「幫 example.com 做一份安全偵察報告」—— 它呼叫一次
+`recon_report`,拿回可直接行動的整體評級:
 
 ```json
 {
-  "email": {
-    "assessment": {
-      "grade": "A",
-      "score": 100,
-      "summary": "SPF, DKIM, and DMARC are all configured and enforced.",
-      "findings": [
-        { "severity": "ok", "check": "SPF",   "message": "SPF present with a hard fail (\"-all\")." },
-        { "severity": "ok", "check": "DKIM",  "message": "DKIM present (selector \"default\")." },
-        { "severity": "ok", "check": "DMARC", "message": "DMARC enforced (p=reject)." }
-      ]
-    }
+  "domain": "example.com",
+  "overall_grade": "F",
+  "summary": "Overall posture F: email A, TLS B, headers F; 13 actionable issue(s).",
+  "components": {
+    "email":   { "grade": "A", "issues": [] },
+    "tls":     { "grade": "B", "issues": [] },
+    "headers": { "grade": "F", "issues": [
+      { "severity": "high", "label": "Missing Content-Security-Policy", "detail": "CSP not set; cannot restrict resource load sources" }
+    ] }
   }
 }
 ```
 
-缺 DMARC 的網域會回傳 `warning` 等級的 finding,附上具體建議與較低的 grade
-—— 讓 agent 能直接告訴使用者該修什麼。
+想深入某一項?agent 可以直接呼叫 `dns_recon`、`tls_check`、
+`http_headers_audit` 或 `port_scan`。
 
 ## 安裝
 
@@ -98,10 +97,17 @@ claude mcp add recon -- uvx recon-kit-mcp
 
 (從原始碼 checkout 時,改把 command 指向 `/絕對路徑/到/.venv/bin/recon-kit-mcp`。)
 
-接著就能對 agent 說:*「用 dns_recon 查 example.com,告訴我它的郵件安全
-設定有沒有做好」* 或 *「稽核 example.com 的 TLS 與安全標頭」*。
+接著直接說:*「幫 example.com 做一份安全偵察報告」* —— 或只查某一項,
+例如 *「檢查 example.com 的郵件安全」*。
 
 ## 工具參考
+
+### `recon_report(domain, timeout?) -> dict`
+
+一次跑完 DNS/郵件、TLS、HTTP 標頭檢查,回傳 `overall_grade`(以最弱的元件
+為準)、一行 `summary`,以及 `components`(`email` / `tls` / `headers`),
+每項含自己的 `grade` 與可行動的 `issues`。**建議的起點**;要原始細節再用下面
+各別工具。
 
 ### `dns_recon(domain, checks?, timeout?) -> dict`
 

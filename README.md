@@ -24,36 +24,34 @@ instead of parsing console output.
 
 | Tool | What it does |
 |------|--------------|
-| `dns_recon` | Passive DNS + WHOIS + email-security (SPF/DMARC/DKIM) lookup, with a graded email-security assessment |
-| `tls_check` | SSL/TLS inspection: certificate, protocol versions, cipher suites, forward secrecy, HSTS, OCSP, known protocol vulnerabilities — graded |
-| `http_headers_audit` | Audits HTTP security response headers (CSP, HSTS, X-Frame-Options, COEP/COOP/CORP, …) — graded |
-| `port_scan` | TCP connect scan of a single host (capped at 1024 ports/call), reporting open ports and services |
+| `recon_report` | **Start here.** One call → DNS, TLS, and HTTP headers checked together, with an overall grade |
+| `dns_recon` | DNS + WHOIS + email security (SPF/DMARC/DKIM), graded |
+| `tls_check` | Certificate, protocols, ciphers, and known TLS vulnerabilities, graded |
+| `http_headers_audit` | HTTP security headers (CSP, HSTS, X-Frame-Options, …), graded |
+| `port_scan` | TCP port scan of one host (≤1024 ports/call), open ports + services |
 
 ## Example
 
-Ask your agent *"check the email security of example.com"* — it calls `dns_recon`
-and gets back a graded verdict it can act on, not raw records:
+Just ask your agent: *"run a security recon report on example.com."* It calls
+`recon_report` once and gets a graded overview it can act on:
 
 ```json
 {
-  "email": {
-    "assessment": {
-      "grade": "A",
-      "score": 100,
-      "summary": "SPF, DKIM, and DMARC are all configured and enforced.",
-      "findings": [
-        { "severity": "ok", "check": "SPF",   "message": "SPF present with a hard fail (\"-all\")." },
-        { "severity": "ok", "check": "DKIM",  "message": "DKIM present (selector \"default\")." },
-        { "severity": "ok", "check": "DMARC", "message": "DMARC enforced (p=reject)." }
-      ]
-    }
+  "domain": "example.com",
+  "overall_grade": "F",
+  "summary": "Overall posture F: email A, TLS B, headers F; 13 actionable issue(s).",
+  "components": {
+    "email":   { "grade": "A", "issues": [] },
+    "tls":     { "grade": "B", "issues": [] },
+    "headers": { "grade": "F", "issues": [
+      { "severity": "high", "label": "Missing Content-Security-Policy", "detail": "CSP not set; cannot restrict resource load sources" }
+    ] }
   }
 }
 ```
 
-A domain missing DMARC comes back as a `warning` finding with a concrete
-recommendation, and a lower grade — so the agent can tell the user exactly what
-to fix.
+Need more detail on one area? The agent can call `dns_recon`, `tls_check`,
+`http_headers_audit`, or `port_scan` directly.
 
 ## Install
 
@@ -101,11 +99,17 @@ Or add it manually to any MCP client config:
 
 (From a source checkout, point the command at `/absolute/path/to/.venv/bin/recon-kit-mcp` instead.)
 
-Then ask the agent things like *"run dns_recon on example.com and tell me if its
-email security is properly configured"* or *"audit the TLS and security headers
-of example.com."*
+Then just ask: *"run a security recon report on example.com"* — or target one
+area, e.g. *"check the email security of example.com."*
 
 ## Tool reference
+
+### `recon_report(domain, timeout?) -> dict`
+
+Runs DNS/email, TLS, and HTTP-header checks together and returns `overall_grade`
+(as weak as the weakest component), a one-line `summary`, and `components`
+(`email` / `tls` / `headers`), each with its `grade` and actionable `issues`.
+The best starting point; use the tools below for raw detail.
 
 ### `dns_recon(domain, checks?, timeout?) -> dict`
 
