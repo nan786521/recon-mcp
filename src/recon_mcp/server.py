@@ -17,6 +17,7 @@ from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
 from recon_mcp.tools.portscan import PortScanner, PortScanError
 from recon_mcp.tools.subdomain import SubdomainEnumerator, SubdomainEnumError
 from recon_mcp.tools.report import build_report
+from recon_mcp.util import normalize_host
 
 mcp = FastMCP(
     "recon-mcp",
@@ -54,6 +55,7 @@ def dns_recon(
           - whois: parsed registration fields plus the raw WHOIS text
           - email: SPF / DMARC / DKIM posture
     """
+    domain = normalize_host(domain)
     selected = checks or ["records", "whois", "email"]
     recon = DNSRecon(timeout=timeout)
     result: dict = {"domain": domain}
@@ -86,7 +88,7 @@ def tls_check(host: str, port: int = 443, timeout: float = 5.0) -> dict:
         A structured dict with: grade, certificate, protocols, cipher info,
         forward_secrecy, hsts, vulnerabilities, and a findings list.
     """
-    return SSLAnalyzer(timeout=timeout).analyze(host, port=port)
+    return SSLAnalyzer(timeout=timeout).analyze(normalize_host(host), port=port)
 
 
 @mcp.tool()
@@ -115,7 +117,7 @@ def http_headers_audit(
     """
     if port is None:
         port = 443 if use_ssl else 80
-    return HTTPHeadersAnalyzer(timeout=timeout).analyze(host, port=port, use_ssl=use_ssl)
+    return HTTPHeadersAnalyzer(timeout=timeout).analyze(normalize_host(host), port=port, use_ssl=use_ssl)
 
 
 @mcp.tool()
@@ -142,7 +144,7 @@ def port_scan(
         DNS failure.
     """
     try:
-        return PortScanner(timeout=timeout).scan(host, ports=ports)
+        return PortScanner(timeout=timeout).scan(normalize_host(host), ports=ports)
     except PortScanError as e:
         return {"host": host, "error": str(e)}
 
@@ -170,7 +172,7 @@ def subdomain_enum(
         subdomain and its resolved ips).
     """
     try:
-        return SubdomainEnumerator(timeout=timeout).enumerate(domain, wordlist=wordlist)
+        return SubdomainEnumerator(timeout=timeout).enumerate(normalize_host(domain), wordlist=wordlist)
     except SubdomainEnumError as e:
         return {"domain": domain, "error": str(e)}
 
@@ -193,6 +195,8 @@ def recon_report(domain: str, timeout: float = 5.0) -> dict:
         (email / tls / headers), each with a grade and a list of issues. A
         component that errors is reported without breaking the rest.
     """
+    domain = normalize_host(domain)
+
     def _safe(fn):
         try:
             return fn()
