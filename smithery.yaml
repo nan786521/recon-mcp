@@ -1,0 +1,12 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # recon-mcp needs no configuration.
+    type: object
+    properties: {}
+  commandFunction:
+    # Produces the CLI command Smithery uses to start the server over stdio.
+    |-
+    (config) => ({ command: 'uvx', args: ['recon-mcp'], env: { PYTHONUNBUFFERED: '1' } })
