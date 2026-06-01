@@ -2,6 +2,10 @@
 
 **English** | [繁體中文](./README.zh-TW.md)
 
+[![CI](https://github.com/nan786521/recon-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/nan786521/recon-mcp/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+
 An [MCP](https://modelcontextprotocol.io) server that gives AI coding agents —
 **Claude Code, Codex, Cline, and any MCP client** — safe, structured network and
 security **reconnaissance** tools.

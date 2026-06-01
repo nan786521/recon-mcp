@@ -1,0 +1,17 @@
+"""Smoke test: the MCP server exposes the expected tools."""
+
+import asyncio
+
+from recon_mcp.server import mcp
+
+
+def test_expected_tools_are_registered():
+    tools = asyncio.run(mcp.list_tools())
+    names = {t.name for t in tools}
+    assert {"dns_recon", "tls_check", "http_headers_audit"} <= names
+
+
+def test_tools_have_descriptions():
+    tools = asyncio.run(mcp.list_tools())
+    for t in tools:
+        assert t.description, f"{t.name} is missing a description"

@@ -2,6 +2,10 @@
 
 [English](./README.md) | **繁體中文**
 
+[![CI](https://github.com/nan786521/recon-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/nan786521/recon-mcp/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+
 一個 [MCP](https://modelcontextprotocol.io) server,讓 AI coding agent ——
 **Claude Code、Codex、Cline,以及任何 MCP 用戶端** —— 能使用安全、
 結構化的網路與資安**偵察**工具。
