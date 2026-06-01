@@ -102,6 +102,9 @@ claude mcp add recon -- uvx recon-kit-mcp
 接著直接說:*「幫 example.com 做一份安全偵察報告」* —— 或只查某一項,
 例如 *「檢查 example.com 的郵件安全」*。
 
+server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它、給一個
+網域,就會引導做一份依嚴重度排序的稽核。
+
 ## 工具參考
 
 ### `recon_report(domain, timeout?) -> dict`

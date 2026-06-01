@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-06-01
+
+### Added
+- `security_recon` MCP prompt — a guided "audit this domain" workflow that
+  clients can offer from their prompt menu, so users don't need to know tool
+  names.
+
 ## [0.4.1] — 2026-06-01
 
 ### Added
@@ -43,6 +50,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.5.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.5.0
 [0.4.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.4.1
 [0.4.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.3.0

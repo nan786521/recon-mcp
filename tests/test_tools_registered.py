@@ -19,3 +19,8 @@ def test_tools_have_descriptions():
 
 def test_server_has_authorized_use_instructions():
     assert mcp.instructions and "authorized" in mcp.instructions.lower()
+
+
+def test_security_recon_prompt_registered():
+    prompts = asyncio.run(mcp.list_prompts())
+    assert any(p.name == "security_recon" for p in prompts)

@@ -104,6 +104,9 @@ Or add it manually to any MCP client config:
 Then just ask: *"run a security recon report on example.com"* — or target one
 area, e.g. *"check the email security of example.com."*
 
+The server also ships a **`security_recon` prompt**: pick it from your client's
+prompt menu and pass a domain for a guided, severity-sorted audit.
+
 ## Tool reference
 
 ### `recon_report(domain, timeout?) -> dict`

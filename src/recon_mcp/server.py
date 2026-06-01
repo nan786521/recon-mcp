@@ -213,6 +213,19 @@ def recon_report(domain: str, timeout: float = 5.0) -> dict:
     return build_report(domain, dns_result, tls_result, headers_result)
 
 
+@mcp.prompt(title="Security recon report")
+def security_recon(domain: str) -> str:
+    """Guided full security reconnaissance of a domain, summarized by severity."""
+    return (
+        f"Run a security reconnaissance report on {domain}, then summarize it for me.\n\n"
+        f"1. Call `recon_report` on {domain} to get the overall posture.\n"
+        f"2. Optionally run `subdomain_enum` to see exposed subdomains.\n"
+        f"3. Report the overall grade and each component's grade (email, TLS, headers), "
+        f"then list the top issues by severity, each with a concrete fix.\n\n"
+        f"Only proceed if I am authorized to assess {domain}."
+    )
+
+
 def main() -> None:
     """Run the MCP server over stdio."""
     mcp.run()
