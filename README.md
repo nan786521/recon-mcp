@@ -30,6 +30,32 @@ instead of parsing console output.
 
 Roadmap: `port_scan` (rate-limited, opt-in, authorized targets only).
 
+## Example
+
+Ask your agent *"check the email security of example.com"* — it calls `dns_recon`
+and gets back a graded verdict it can act on, not raw records:
+
+```json
+{
+  "email": {
+    "assessment": {
+      "grade": "A",
+      "score": 100,
+      "summary": "SPF, DKIM, and DMARC are all configured and enforced.",
+      "findings": [
+        { "severity": "ok", "check": "SPF",   "message": "SPF present with a hard fail (\"-all\")." },
+        { "severity": "ok", "check": "DKIM",  "message": "DKIM present (selector \"default\")." },
+        { "severity": "ok", "check": "DMARC", "message": "DMARC enforced (p=reject)." }
+      ]
+    }
+  }
+}
+```
+
+A domain missing DMARC comes back as a `warning` finding with a concrete
+recommendation, and a lower grade — so the agent can tell the user exactly what
+to fix.
+
 ## Install
 
 Requires Python ≥ 3.10.

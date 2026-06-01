@@ -28,6 +28,31 @@
 
 藍圖:`port_scan`(含速率限制、需主動啟用、僅限授權目標)。
 
+## 範例
+
+對 agent 說「檢查 example.com 的郵件安全」—— 它會呼叫 `dns_recon`,拿回一份
+**可直接行動的分級判讀**,而不是一堆原始紀錄:
+
+```json
+{
+  "email": {
+    "assessment": {
+      "grade": "A",
+      "score": 100,
+      "summary": "SPF, DKIM, and DMARC are all configured and enforced.",
+      "findings": [
+        { "severity": "ok", "check": "SPF",   "message": "SPF present with a hard fail (\"-all\")." },
+        { "severity": "ok", "check": "DKIM",  "message": "DKIM present (selector \"default\")." },
+        { "severity": "ok", "check": "DMARC", "message": "DMARC enforced (p=reject)." }
+      ]
+    }
+  }
+}
+```
+
+缺 DMARC 的網域會回傳 `warning` 等級的 finding,附上具體建議與較低的 grade
+—— 讓 agent 能直接告訴使用者該修什麼。
+
 ## 安裝
 
 需要 Python ≥ 3.10。
