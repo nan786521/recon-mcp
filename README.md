@@ -1,29 +1,30 @@
 # recon-mcp
 
+**English** | [繁體中文](./README.zh-TW.md)
+
 An [MCP](https://modelcontextprotocol.io) server that gives AI coding agents —
 **Claude Code, Codex, Cline, and any MCP client** — safe, structured network and
 security **reconnaissance** tools.
 
 Most MCP servers wrap CRUD APIs. `recon-mcp` instead exposes the kind of
-read-only recon an engineer reaches for when investigating an asset: DNS and
-WHOIS lookups today, with TLS inspection, HTTP-header auditing, and guarded port
-scanning on the roadmap. Every tool returns clean JSON so the agent can reason
-over the results instead of parsing console output.
+read-only recon an engineer reaches for when investigating an asset, and returns
+clean JSON — with a graded verdict — so the agent can reason over results
+instead of parsing console output.
 
 > ⚠️ **Authorized use only.** These tools are for security testing of assets you
 > own or have explicit written permission to assess, for CTF practice, and for
 > education. Do not point them at third-party infrastructure without
 > authorization. You are responsible for how you use this software.
 
-## Status
-
-Early / `v0.1`. Implemented tools:
+## Tools
 
 | Tool | What it does |
 |------|--------------|
-| `dns_recon` | Passive DNS + WHOIS + email-security (SPF/DMARC/DKIM) lookup, all from public data |
+| `dns_recon` | Passive DNS + WHOIS + email-security (SPF/DMARC/DKIM) lookup, with a graded email-security assessment |
+| `tls_check` | SSL/TLS inspection: certificate, protocol versions, cipher suites, forward secrecy, HSTS, OCSP, known protocol vulnerabilities — graded |
+| `http_headers_audit` | Audits HTTP security response headers (CSP, HSTS, X-Frame-Options, COEP/COOP/CORP, …) — graded |
 
-Roadmap: `tls_check`, `http_headers_audit`, `port_scan` (rate-limited, opt-in).
+Roadmap: `port_scan` (rate-limited, opt-in, authorized targets only).
 
 ## Install
 
@@ -48,7 +49,7 @@ Add the server (stdio transport):
 claude mcp add recon -- /absolute/path/to/.venv/bin/recon-mcp
 ```
 
-Or add it manually to your MCP client config:
+Or add it manually to any MCP client config:
 
 ```json
 {
@@ -61,21 +62,32 @@ Or add it manually to your MCP client config:
 ```
 
 Then ask the agent things like *"run dns_recon on example.com and tell me if its
-email security is properly configured."*
+email security is properly configured"* or *"audit the TLS and security headers
+of example.com."*
 
-## The `dns_recon` tool
+## Tool reference
 
-```
-dns_recon(domain: str, checks?: ["records"|"whois"|"email"], timeout?: float) -> dict
-```
+### `dns_recon(domain, checks?, timeout?) -> dict`
 
 - **records** — A, AAAA, MX, NS, TXT, SOA, CNAME records
 - **whois** — parsed registration fields + raw WHOIS text
 - **email** — SPF, DMARC, and DKIM posture, plus a graded `assessment`
   (letter grade A–F, a summary, and per-check findings with severity and a
-  recommended fix) so the agent gets an actionable verdict, not just raw records
+  recommended fix)
 
-Omit `checks` to run all three.
+`checks` is any subset of `["records", "whois", "email"]`; omit it to run all.
+
+### `tls_check(host, port=443, timeout?) -> dict`
+
+Returns `grade`, `certificate` (validity / expiry / key algorithm),
+`protocols` (flags legacy SSLv3 / TLS 1.0 / 1.1), cipher info,
+`forward_secrecy`, `hsts`, `vulnerabilities` (each with a `vulnerable` flag),
+and a `findings` list.
+
+### `http_headers_audit(host, port?, use_ssl=True, timeout?) -> dict`
+
+Returns `grade`, `score`, the observed security headers, and a `findings`
+list with a recommendation per header. Defaults to HTTPS (port 443).
 
 ## License
 
