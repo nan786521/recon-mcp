@@ -10,6 +10,7 @@ these tools against assets you own or have explicit permission to assess.
 from mcp.server.fastmcp import FastMCP
 
 from recon_mcp.tools.dns import DNSRecon
+from recon_mcp.tools.tls import SSLAnalyzer
 
 mcp = FastMCP("recon-mcp")
 
@@ -46,6 +47,27 @@ def dns_recon(
         result["email"] = recon.analyze_email_security(domain)
 
     return result
+
+
+@mcp.tool()
+def tls_check(host: str, port: int = 443, timeout: float = 5.0) -> dict:
+    """Inspect a host's SSL/TLS configuration and grade it.
+
+    Checks the certificate (validity, expiry, key algorithm), supported
+    protocol versions (flagging legacy SSLv3/TLS 1.0/1.1), cipher suites and
+    forward secrecy, TLS compression, HSTS, OCSP stapling, and known protocol
+    vulnerabilities. Returns a letter grade plus structured findings.
+
+    Args:
+        host: Hostname or IP to inspect, e.g. "example.com".
+        port: TLS port (default 443).
+        timeout: Per-connection network timeout in seconds.
+
+    Returns:
+        A structured dict with: grade, certificate, protocols, cipher info,
+        forward_secrecy, hsts, vulnerabilities, and a findings list.
+    """
+    return SSLAnalyzer(timeout=timeout).analyze(host, port=port)
 
 
 def main() -> None:
