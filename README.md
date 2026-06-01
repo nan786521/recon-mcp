@@ -107,3 +107,5 @@ list with a recommendation per header. Defaults to HTTPS (port 443).
 ## License
 
 [MIT](./LICENSE)
+
+<!-- mcp-name: io.github.nan786521/recon-kit-mcp -->
