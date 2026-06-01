@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from recon_mcp.tools.dns import DNSRecon
 from recon_mcp.tools.tls import SSLAnalyzer
+from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
 
 mcp = FastMCP("recon-mcp")
 
@@ -68,6 +69,35 @@ def tls_check(host: str, port: int = 443, timeout: float = 5.0) -> dict:
         forward_secrecy, hsts, vulnerabilities, and a findings list.
     """
     return SSLAnalyzer(timeout=timeout).analyze(host, port=port)
+
+
+@mcp.tool()
+def http_headers_audit(
+    host: str,
+    port: int | None = None,
+    use_ssl: bool = True,
+    timeout: float = 5.0,
+) -> dict:
+    """Audit a web server's HTTP security response headers and grade them.
+
+    Inspects headers such as Content-Security-Policy, Strict-Transport-Security
+    (HSTS), X-Frame-Options, X-Content-Type-Options, Referrer-Policy,
+    Permissions-Policy, and the COEP/COOP/CORP isolation headers. Returns a
+    letter grade plus per-header findings with recommendations.
+
+    Args:
+        host: Hostname or IP to audit, e.g. "example.com".
+        port: TCP port. Defaults to 443 when use_ssl is True, else 80.
+        use_ssl: Connect over HTTPS (default True).
+        timeout: Per-connection network timeout in seconds.
+
+    Returns:
+        A structured dict with: grade, score, the observed headers, and a
+        findings list.
+    """
+    if port is None:
+        port = 443 if use_ssl else 80
+    return HTTPHeadersAnalyzer(timeout=timeout).analyze(host, port=port, use_ssl=use_ssl)
 
 
 def main() -> None:
