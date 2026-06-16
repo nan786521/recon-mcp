@@ -138,20 +138,75 @@ class DNSRecon:
 
     # ==================== DNS queries ====================
 
-    def dns_query(self, domain, record_type='A', dns_server='8.8.8.8'):
-        """Query a single DNS record type."""
+    def dns_query(self, domain, record_type='A', dns_server='8.8.8.8', retries=2):
+        """Query a single DNS record type over UDP, with retry and TCP fallback.
+
+        DNS over UDP is lossy and size-limited, which silently corrupts results:
+          - a dropped datagram makes the record type look empty (it isn't), so
+            retry a couple of times before giving up;
+          - a response larger than the UDP buffer is truncated and the server
+            sets the TC bit — common for big TXT / many-record answers, exactly
+            the data that drives SPF / DKIM analysis. On TC, re-ask over TCP,
+            which has no size limit.
+
+        A fast negative answer (NXDOMAIN, rcode 3) is a real response, not a
+        timeout, so it returns immediately without burning retries — non-existent
+        subdomains during enumeration stay fast.
+        """
         qtype = DNS_TYPES.get(record_type.upper(), 1)
         packet = self._build_dns_query(domain, qtype)
 
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(self.timeout)
-            sock.sendto(packet, (dns_server, 53))
-            data, _ = sock.recvfrom(4096)
-            sock.close()
-            return self._parse_dns_response(data, record_type.upper())
-        except Exception as e:
-            return {'error': str(e)}
+        data = self._query_udp(packet, dns_server, retries)
+        if data is None:
+            return {'error': 'no response from DNS server'}
+
+        # TC (truncated) bit in the response flags → the answer did not fit in
+        # the UDP datagram; ask again over TCP and prefer that fuller answer.
+        if len(data) >= 4 and (struct.unpack('>H', data[2:4])[0] & 0x0200):
+            try:
+                tcp_data = self._query_tcp(packet, dns_server)
+                if tcp_data:
+                    data = tcp_data
+            except OSError:
+                pass  # keep the truncated UDP answer rather than failing outright
+
+        return self._parse_dns_response(data, record_type.upper())
+
+    def _query_udp(self, packet, dns_server, retries):
+        """Send the query over UDP, retrying on timeout. Returns raw bytes or None."""
+        for _ in range(max(1, retries)):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    sock.settimeout(self.timeout)
+                    sock.sendto(packet, (dns_server, 53))
+                    data, _ = sock.recvfrom(4096)
+                    return data
+            except socket.timeout:
+                continue          # lost datagram — try again
+            except OSError:
+                return None       # unreachable / refused — no point retrying
+        return None
+
+    def _query_tcp(self, packet, dns_server):
+        """Send the query over TCP (length-prefixed). Returns raw DNS bytes."""
+        with socket.create_connection((dns_server, 53), timeout=self.timeout) as sock:
+            sock.sendall(struct.pack('>H', len(packet)) + packet)
+            length_bytes = self._recv_exactly(sock, 2)
+            if len(length_bytes) < 2:
+                return b''
+            resp_len = struct.unpack('>H', length_bytes)[0]
+            return self._recv_exactly(sock, resp_len)
+
+    @staticmethod
+    def _recv_exactly(sock, n):
+        """Read exactly n bytes from a stream socket (TCP), or fewer on EOF."""
+        buf = b''
+        while len(buf) < n:
+            chunk = sock.recv(n - len(buf))
+            if not chunk:
+                break
+            buf += chunk
+        return buf
 
     def dns_query_all(self, domain, record_types=None):
         """Query several DNS record types at once.
