@@ -7,6 +7,7 @@ records, WHOIS registration, and email-security posture (SPF / DMARC / DKIM).
 import socket
 import struct
 import random
+import concurrent.futures
 
 # WHOIS server map by TLD
 WHOIS_SERVERS = {
@@ -153,14 +154,24 @@ class DNSRecon:
             return {'error': str(e)}
 
     def dns_query_all(self, domain, record_types=None):
-        """Query several DNS record types at once."""
+        """Query several DNS record types at once.
+
+        Each record type is an independent UDP round-trip, so they run
+        concurrently — wall-clock is one query, not the sum of all of them
+        (which matters most when some types time out). Output order follows
+        `record_types` regardless of which responses arrive first.
+        """
         if record_types is None:
             record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'SOA', 'CNAME', 'CAA']
 
-        results = {}
-        for rt in record_types:
+        def _query(rt):
             resp = self.dns_query(domain, rt)
-            results[rt] = resp.get('records', []) if not resp.get('error') else []
+            return resp.get('records', []) if not resp.get('error') else []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(record_types)) as pool:
+            futures = {rt: pool.submit(_query, rt) for rt in record_types}
+            results = {rt: futures[rt].result() for rt in record_types}
+
         return {'domain': domain, 'records': results}
 
     def reverse_dns(self, ip):
