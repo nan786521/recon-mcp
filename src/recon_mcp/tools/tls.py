@@ -77,35 +77,42 @@ class SSLAnalyzer:
             result['grade'] = 'F'
             return result
 
-        # Certificate chain verification
-        chain_valid, chain_error = self._verify_chain(target, port)
-        result['chain_valid'] = chain_valid
-        result['chain_error'] = chain_error
+        # Beyond the certificate gate above, the remaining probes are mutually
+        # independent network round-trips (chain, protocol versions, cipher
+        # enumeration, negotiated cipher, compression, HSTS, OCSP). Run them
+        # concurrently instead of one handshake after another — wall-clock drops
+        # to roughly the single slowest probe (cipher enumeration) rather than
+        # the sum of them all. Each sub-method builds its own ssl context and
+        # socket and only reads self.timeout, so there is no shared mutable
+        # state to guard.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=7) as pool:
+            f_chain = pool.submit(self._verify_chain, target, port)
+            f_protocols = pool.submit(self._test_protocols, target, port)
+            f_ciphers = pool.submit(self._enumerate_server_ciphers, target, port)
+            f_negotiated = pool.submit(self._get_negotiated_cipher, target, port)
+            f_compression = pool.submit(self._check_compression, target, port)
+            f_hsts = pool.submit(self._check_hsts, target, port)
+            f_ocsp = pool.submit(self._check_ocsp_stapling, target, port)
 
-        # Test protocols (including SSLv3)
-        result['protocols'] = self._test_protocols(target, port)
+            chain_valid, chain_error = f_chain.result()
+            result['chain_valid'] = chain_valid
+            result['chain_error'] = chain_error
 
-        # Server-side cipher enumeration
-        server_ciphers = self._enumerate_server_ciphers(target, port)
-        result['server_ciphers'] = server_ciphers
-        result['cipher_suites'] = server_ciphers  # backward compatibility
+            result['protocols'] = f_protocols.result()
 
-        # Negotiated cipher
-        result['negotiated_cipher'] = self._get_negotiated_cipher(target, port)
+            server_ciphers = f_ciphers.result()
+            result['server_ciphers'] = server_ciphers
+            result['cipher_suites'] = server_ciphers  # backward compatibility
 
-        # Forward Secrecy
+            result['negotiated_cipher'] = f_negotiated.result()
+            result['compression'] = f_compression.result()
+            result['hsts'] = f_hsts.result()
+            result['ocsp_stapling'] = f_ocsp.result()
+
+        # Forward Secrecy (derived from the enumerated ciphers)
         result['forward_secrecy'] = any(
             c['name'].startswith(('ECDHE', 'DHE')) for c in server_ciphers
         )
-
-        # TLS compression
-        result['compression'] = self._check_compression(target, port)
-
-        # HSTS check
-        result['hsts'] = self._check_hsts(target, port)
-
-        # OCSP Stapling
-        result['ocsp_stapling'] = self._check_ocsp_stapling(target, port)
 
         # Known vulnerability detection
         result['vulnerabilities'] = self._check_vulnerabilities(
@@ -285,15 +292,22 @@ class SSLAnalyzer:
     # ─── Protocols ───────────────────────────────────────
 
     def _test_protocols(self, hostname, port):
-        """Test each TLS/SSL protocol version"""
-        results = {}
+        """Test each TLS/SSL protocol version.
 
-        # SSLv3 test (special handling, Python may not support it)
-        results['SSLv3'] = self._test_sslv3(hostname, port)
+        Each version is an independent handshake, so probe them concurrently;
+        the returned dict keeps SSLv3-then-TLS1.0..1.3 order regardless of which
+        handshakes finish first.
+        """
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+            f_sslv3 = pool.submit(self._test_sslv3, hostname, port)
+            f_versions = {
+                name: pool.submit(self._test_single_protocol, hostname, port, min_ver, max_ver)
+                for name, min_ver, max_ver in PROTOCOL_TESTS
+            }
 
-        # TLS 1.0 ~ 1.3
-        for name, min_ver, max_ver in PROTOCOL_TESTS:
-            results[name] = self._test_single_protocol(hostname, port, min_ver, max_ver)
+            results = {'SSLv3': f_sslv3.result()}
+            for name, _min, _max in PROTOCOL_TESTS:
+                results[name] = f_versions[name].result()
 
         return results
 
