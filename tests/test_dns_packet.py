@@ -72,3 +72,61 @@ def test_spf_all_mechanism_parsing():
     assert recon._parse_spf_all("v=spf1 ~all") == "softfail"
     assert recon._parse_spf_all("v=spf1 +all") == "pass"
     assert recon._parse_spf_all("v=spf1 include:x") == "unknown"
+
+
+# ── UDP retry / TC truncation TCP fallback (offline, methods stubbed) ──
+
+def _a_response(ip_bytes, flags):
+    """Build a minimal 1-answer A-record response with the given header flags."""
+    header = struct.pack(">HHHHHH", 0x1234, flags, 1, 1, 0, 0)
+    question = b"\x07example\x03com\x00" + struct.pack(">HH", 1, 1)
+    answer = b"\xc0\x0c" + struct.pack(">HHIH", 1, 1, 300, 4) + bytes(ip_bytes)
+    return header + question + answer
+
+
+def test_tc_bit_triggers_tcp_fallback():
+    recon = DNSRecon()
+    # UDP answer has the TC bit set (0x0200) and carries the "wrong" address;
+    # the TCP answer is the fuller one and should win.
+    truncated = struct.pack(">HHHHHH", 0x1234, 0x8380, 1, 0, 0, 0)  # QR+TC+RD+RA
+    recon._query_udp = lambda pkt, srv, retries: truncated
+    recon._query_tcp = lambda pkt, srv: _a_response([1, 2, 3, 4], 0x8180)
+
+    parsed = recon.dns_query("example.com", "A")
+    assert parsed["records"][0]["value"] == "1.2.3.4"
+
+
+def test_no_tc_bit_skips_tcp():
+    recon = DNSRecon()
+    recon._query_udp = lambda pkt, srv, retries: _a_response([5, 6, 7, 8], 0x8180)
+    calls = {"tcp": 0}
+
+    def _tcp(pkt, srv):
+        calls["tcp"] += 1
+        return b""
+
+    recon._query_tcp = _tcp
+    parsed = recon.dns_query("example.com", "A")
+    assert parsed["records"][0]["value"] == "5.6.7.8"
+    assert calls["tcp"] == 0  # untruncated UDP answer must not hit TCP
+
+
+def test_udp_no_response_returns_error():
+    recon = DNSRecon()
+    recon._query_udp = lambda pkt, srv, retries: None  # all retries timed out
+    parsed = recon.dns_query("example.com", "A")
+    assert "error" in parsed
+
+
+def test_recv_exactly_reassembles_chunked_stream():
+    class OneByteAtATime:
+        def __init__(self, data):
+            self.data = data
+
+        def recv(self, n):
+            chunk, self.data = self.data[:1], self.data[1:]
+            return chunk
+
+    assert DNSRecon._recv_exactly(OneByteAtATime(b"hello"), 5) == b"hello"
+    # EOF before n bytes returns what was read so far
+    assert DNSRecon._recv_exactly(OneByteAtATime(b"hi"), 5) == b"hi"

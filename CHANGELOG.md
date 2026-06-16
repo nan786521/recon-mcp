@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-06-16
+
+### Fixed
+- `dns_recon` no longer loses large DNS answers. Queries are sent without EDNS0,
+  so any response over 512 bytes was truncated by the server (TC bit) and
+  silently parsed as **zero records** — breaking SPF/DKIM analysis on TXT-heavy
+  domains (e.g. `google.com` returned 0 TXT records, `microsoft.com` likewise).
+  Truncated answers now fall back to TCP, recovering the full record set.
+- UDP queries retry on timeout (a dropped datagram no longer makes a record type
+  look empty). Real negative answers (NXDOMAIN) still return immediately, so
+  subdomain enumeration stays fast.
+
+### Changed
+- `tls_check` runs its independent probes (chain, protocol versions, cipher
+  enumeration, negotiated cipher, compression, HSTS, OCSP) concurrently instead
+  of one handshake after another; wall-clock drops to roughly the single slowest
+  probe. Output is unchanged.
+- `dns_recon` queries all record types concurrently, so the worst case is one
+  query timeout instead of the sum of all of them (~8× faster on dead hosts).
+  `recon_report` inherits both speedups.
+
 ## [0.6.0] — 2026-06-01
 
 ### Added
@@ -70,6 +91,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.7.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.6.0
 [0.5.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.5.1
 [0.5.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.5.0
