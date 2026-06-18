@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.4] — 2026-06-18
+
+### Fixed
+- The `initialize` handshake reported the MCP SDK's own version (e.g. `1.28.0`)
+  as the server version, because FastMCP doesn't forward one. It now sets the
+  package version (`__version__`, the single source of truth) on the underlying
+  server, so clients see the real recon-kit-mcp version. Added a test to guard
+  against an SDK change silently reverting this.
+
 ## [0.8.3] — 2026-06-18
 
 ### Fixed
