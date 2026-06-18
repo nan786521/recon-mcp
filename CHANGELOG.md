@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] — 2026-06-18
+
+### Fixed
+- MCP Registry publish failed for 0.8.0 because `server.json`'s `description`
+  exceeded the registry's 100-character limit. Shortened it. The PyPI 0.8.0
+  package itself published fine; this release re-registers with valid metadata.
+
 ## [0.8.0] — 2026-06-18
 
 ### Added
@@ -112,6 +119,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.8.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.1
 [0.8.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.6.0

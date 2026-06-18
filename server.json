@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.nan786521/recon-kit-mcp",
-  "description": "Network & security recon tools (DNS, WHOIS, TLS, HTTP headers, cookies, CORS, CT subdomains, RDAP) for AI coding agents, each graded.",
+  "description": "Read-only network & security recon tools (DNS, TLS, headers, CORS) for AI agents, each graded.",
   "repository": {
     "url": "https://github.com/nan786521/recon-mcp",
     "source": "github"
   },
-  "version": "0.8.0",
+  "version": "0.8.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "recon-kit-mcp",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "transport": {
         "type": "stdio"
       }
