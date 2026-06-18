@@ -79,11 +79,13 @@ def parse_rdap_ip(data):
     }
 
 
-def ip_info(host, timeout=8.0):
+def ip_info(host, timeout=20.0):
     """Resolve a host and enrich its IP with RDAP registry data.
 
     Returns {host, ip, rdap: {...}}. If the host does not resolve, or RDAP is
-    unreachable, the relevant section carries an `error` field instead.
+    unreachable, the relevant section carries an `error` field instead. The
+    default timeout is generous because rdap.org's bootstrap redirect to the
+    authoritative RIR can take 10-15s on its own.
     """
     recon = DNSRecon(timeout=timeout)
     resp = recon.dns_query(host, "A")

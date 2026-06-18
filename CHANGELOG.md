@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.2] — 2026-06-18
+
+### Fixed
+- Raised the default timeouts on the two tools that depend on slow external
+  bootstrap services, which made them fail out of the box: `ip_info` 8s → 20s
+  (rdap.org's redirect to the authoritative RIR can take 10-15s alone) and the
+  `subdomain_enum` CT source 15s → 30s (crt.sh routinely needs 20s+ for large
+  domains). Caught during live verification — both now succeed at their defaults.
+
 ## [0.8.1] — 2026-06-18
 
 ### Fixed
@@ -119,6 +128,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.8.2]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.2
 [0.8.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.1
 [0.8.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.7.0

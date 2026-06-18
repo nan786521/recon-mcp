@@ -56,12 +56,13 @@ def parse_crt_sh(raw_json, domain):
     return sorted(found)
 
 
-def query_crt_sh(domain, timeout=15.0):
+def query_crt_sh(domain, timeout=30.0):
     """Fetch and parse CT-log subdomains for `domain` from crt.sh.
 
     Returns a dict with `domain`, `source`, `found_count`, and `found` (a list
     of subdomain names). On a network/transport failure returns an `error`
-    field. crt.sh can be slow, so this defaults to a generous timeout.
+    field. crt.sh is often slow (20s+ for large domains) and occasionally
+    returns 5xx under load, so this defaults to a generous timeout.
     """
     resp = http_get(CRT_SH_URL.format(domain=domain), timeout=timeout, verify=True)
     if resp.get("error"):

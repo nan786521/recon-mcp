@@ -272,7 +272,7 @@ def cookie_audit(host: str, port: int | None = None, use_ssl: bool = True,
 
 @mcp.tool()
 @_safe_tool
-def ip_info(host: str, timeout: float = 8.0) -> dict:
+def ip_info(host: str, timeout: float = 20.0) -> dict:
     """Resolve a host and enrich its IP with RDAP registry ownership data.
 
     Looks up the IP in the public RDAP registry (via rdap.org's bootstrap to the
@@ -282,7 +282,8 @@ def ip_info(host: str, timeout: float = 8.0) -> dict:
 
     Args:
         host: Hostname or IP, e.g. "example.com".
-        timeout: Per-request network timeout in seconds.
+        timeout: Per-request network timeout in seconds. Defaults high because
+            rdap.org's bootstrap redirect can take 10-15s on its own.
 
     Returns:
         A dict with host, ip, and rdap (handle, name, country, cidr, org,
