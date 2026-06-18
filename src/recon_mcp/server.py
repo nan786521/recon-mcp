@@ -12,6 +12,7 @@ import functools
 
 from mcp.server.fastmcp import FastMCP
 
+from recon_mcp import __version__
 from recon_mcp.tools.dns import DNSRecon
 from recon_mcp.tools.tls import SSLAnalyzer, quick_tls_check
 from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
@@ -41,6 +42,11 @@ mcp = FastMCP(
     ),
     website_url="https://github.com/nan786521/recon-mcp",
 )
+
+# FastMCP doesn't forward a server version, so it defaults to the MCP SDK's
+# version in the initialize handshake. Set ours on the low-level server so
+# clients see the package version (single source of truth from __init__).
+mcp._mcp_server.version = __version__
 
 
 def _safe_tool(fn):

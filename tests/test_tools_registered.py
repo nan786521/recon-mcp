@@ -2,6 +2,7 @@
 
 import asyncio
 
+from recon_mcp import __version__
 from recon_mcp.server import mcp
 
 
@@ -28,3 +29,10 @@ def test_server_has_authorized_use_instructions():
 def test_security_recon_prompt_registered():
     prompts = asyncio.run(mcp.list_prompts())
     assert any(p.name == "security_recon" for p in prompts)
+
+
+def test_server_reports_package_version():
+    # FastMCP doesn't forward a version, so server.py sets it on the low-level
+    # server. Guard against an SDK change silently reverting us to the SDK's
+    # own version in the initialize handshake.
+    assert mcp._mcp_server.version == __version__
