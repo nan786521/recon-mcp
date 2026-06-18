@@ -4,7 +4,9 @@ import ssl
 import urllib.error
 import urllib.request
 
-USER_AGENT = "recon-kit-mcp/0.8 (+https://github.com/nan786521/recon-mcp)"
+from recon_mcp import __version__
+
+USER_AGENT = f"recon-kit-mcp/{__version__} (+https://github.com/nan786521/recon-mcp)"
 
 
 def http_get(url, timeout=5.0, headers=None, verify=True, max_bytes=2_000_000):

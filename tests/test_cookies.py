@@ -4,6 +4,8 @@ from recon_mcp.tools.cookies import (
     parse_set_cookie,
     grade_cookies,
     analyze_redirect_chain,
+    _split_url,
+    _resolve,
 )
 
 
@@ -55,3 +57,17 @@ def test_redirect_downgrade_detected():
 def test_redirect_upgrade_is_clean():
     chain = [{"url": "http://x.com/", "status": 301, "location": "https://x.com/"}]
     assert analyze_redirect_chain(chain) == []
+
+
+def test_split_url_parses_scheme_host_port_path():
+    assert _split_url("https://x.com/a/b") == (True, "x.com", 443, "/a/b")
+    assert _split_url("http://x.com/") == (False, "x.com", 80, "/")
+    assert _split_url("https://x.com:8443/p") == (True, "x.com", 8443, "/p")
+    assert _split_url("http://x.com") == (False, "x.com", 80, "/")
+
+
+def test_resolve_uses_given_scheme_and_port():
+    # Regression: a relative redirect after an http->https upgrade must resolve
+    # against the current (https) scheme, not the chain's original http scheme.
+    assert _resolve("https", "x.com", 443, "/login") == "https://x.com:443/login"
+    assert _resolve("http", "x.com", 80, "rel") == "http://x.com:80/rel"

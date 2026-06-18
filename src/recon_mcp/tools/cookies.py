@@ -9,6 +9,8 @@ functions; only the chain walk touches the network.
 import http.client
 import ssl
 
+from recon_mcp.util import USER_AGENT
+
 MAX_HOPS = 10
 
 # Per-flag weights for a single cookie's score (sum to 100).
@@ -135,7 +137,7 @@ def _request(host, port, use_ssl, path, timeout):
     else:
         conn = http.client.HTTPConnection(host, port, timeout=timeout)
     try:
-        conn.request("GET", path, headers={"User-Agent": "recon-kit-mcp/0.8"})
+        conn.request("GET", path, headers={"User-Agent": USER_AGENT})
         resp = conn.getresponse()
         resp.read()
         set_cookies = resp.headers.get_all("Set-Cookie") or []
@@ -188,7 +190,11 @@ def cookie_audit(host, port=None, use_ssl=True, timeout=5.0, max_hops=MAX_HOPS):
         chain.append(hop)
 
         if status in (301, 302, 303, 307, 308) and location:
-            url = location if "://" in location else _resolve(scheme, cur_host, cur_port, location)
+            # Resolve a relative Location against the CURRENT hop's scheme — not
+            # the chain's original scheme, which is wrong once a hop has upgraded
+            # http -> https.
+            cur_scheme = "https" if cur_ssl else "http"
+            url = location if "://" in location else _resolve(cur_scheme, cur_host, cur_port, location)
         else:
             break
 

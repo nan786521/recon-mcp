@@ -10,6 +10,8 @@ high-impact misconfiguration. One request, read-only.
 import http.client
 import ssl
 
+from recon_mcp.util import USER_AGENT
+
 # A probe Origin the target should never legitimately trust.
 PROBE_ORIGIN = "https://recon-probe.example"
 
@@ -115,7 +117,7 @@ def cors_check(host, port=None, use_ssl=True, timeout=5.0, origin=PROBE_ORIGIN):
             conn = http.client.HTTPConnection(host, port, timeout=timeout)
         try:
             conn.request("GET", "/", headers={
-                "User-Agent": "recon-kit-mcp/0.8",
+                "User-Agent": USER_AGENT,
                 "Origin": origin,
             })
             resp = conn.getresponse()

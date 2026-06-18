@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.3] — 2026-06-18
+
+### Fixed
+- `__version__` had drifted to 0.6.0 because manual version bumps kept missing
+  `__init__.py`. It now derives from the installed package metadata
+  (`importlib.metadata`), so it can never drift again. The hardcoded User-Agent
+  strings (previously `recon-kit-mcp/0.8`) now follow it too.
+- `cookie_audit` resolved a relative redirect `Location` against the chain's
+  original scheme instead of the current hop's. After an http→https upgrade, a
+  subsequent relative redirect produced a wrong `http://host:443/...` URL. It
+  now uses the current hop's scheme. Added unit tests for the redirect URL
+  helpers, which were previously untested.
+
 ## [0.8.2] — 2026-06-18
 
 ### Fixed
@@ -128,6 +141,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.8.3]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.3
 [0.8.2]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.2
 [0.8.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.1
 [0.8.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.0
