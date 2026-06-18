@@ -58,6 +58,52 @@ def build_candidates(domain, wordlist=None):
     return [f"{label}.{domain}" for label in labels]
 
 
+def merge_subdomain_sources(domain, dns_result, ct_result):
+    """Combine DNS-enumeration and CT-log results into one deduplicated view.
+
+    Either input may be None (source not requested) or carry an `error` field
+    (source failed); errors are surfaced without dropping the other source.
+    Each merged entry records which source(s) saw it and any resolved IPs from
+    the DNS pass. Pure function — no network — so it is easy to test.
+    """
+    by_host = {}
+    sources = []
+    errors = {}
+
+    for tag, res in (("dns", dns_result), ("ct", ct_result)):
+        if res is None:
+            continue
+        sources.append(tag)
+        if res.get("error"):
+            errors[tag] = res["error"]
+            continue
+        for entry in res.get("found", []):
+            host = entry.get("subdomain")
+            if not host:
+                continue
+            slot = by_host.setdefault(host, {"subdomain": host, "ips": [], "sources": []})
+            if tag not in slot["sources"]:
+                slot["sources"].append(tag)
+            for ip in entry.get("ips", []):
+                if ip not in slot["ips"]:
+                    slot["ips"].append(ip)
+
+    found = sorted(by_host.values(), key=lambda r: r["subdomain"])
+    for entry in found:
+        if not entry["ips"]:
+            del entry["ips"]  # CT-only entries have no resolved IPs; omit the empty list
+
+    result = {
+        "domain": domain,
+        "sources": sources,
+        "found_count": len(found),
+        "found": found,
+    }
+    if errors:
+        result["errors"] = errors
+    return result
+
+
 class SubdomainEnumerator:
     """DNS-based subdomain enumerator with a concurrency cap."""
 

@@ -25,9 +25,13 @@
 |------|------|
 | `recon_report` | **從這開始。** 一次呼叫 → 同時檢查 DNS、TLS、HTTP 標頭,給整體評級 |
 | `dns_recon` | DNS + WHOIS + 郵件安全(SPF/DMARC/DKIM),含分級 |
-| `subdomain_enum` | 透過 DNS 探索子網域(單次 ≤512 候選),內建或自訂字典 |
+| `subdomain_enum` | 透過 DNS 字典暴力與/或憑證透明度(CT)log 探索子網域 |
 | `tls_check` | 憑證、協定、加密套件、已知 TLS 漏洞,含分級 |
 | `http_headers_audit` | HTTP 安全標頭(CSP、HSTS、X-Frame-Options……),含分級 |
+| `cookie_audit` | 重導鏈 + Cookie 旗標(Secure / HttpOnly / SameSite),含分級 |
+| `cors_check` | CORS 政策探測 —— 標記任意 Origin 反射與萬用字元誤用 |
+| `well_known_audit` | 抓取並解析 `security.txt`(RFC 9116)與 `robots.txt` |
+| `ip_info` | 解析主機並透過 RDAP 富化 IP(擁有者、國家、CIDR、abuse 聯絡) |
 | `port_scan` | 單一主機 TCP 埠掃描(單次 ≤1024 埠),回報開放埠 + 服務 |
 
 ## 範例
@@ -50,8 +54,9 @@
 }
 ```
 
-想深入某一項?agent 可以直接呼叫 `dns_recon`、`tls_check`、
-`http_headers_audit` 或 `port_scan`。
+想深入某一項?agent 可以直接呼叫 `dns_recon`、`subdomain_enum`、`tls_check`、
+`http_headers_audit`、`cookie_audit`、`cors_check`、`well_known_audit`、
+`ip_info` 或 `port_scan`。
 
 ## 安裝
 
@@ -124,11 +129,17 @@ server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它
 
 `checks` 可填 `["records", "whois", "email"]` 的任意子集;省略則三項全跑。
 
-### `subdomain_enum(domain, wordlist?, timeout?) -> dict`
+### `subdomain_enum(domain, wordlist?, source="dns", timeout?) -> dict`
 
-透過 DNS 解析候選子網域,回傳實際存在的。`wordlist` 為逗號分隔的標籤
-(`"www,api,dev"`);省略則用內建常見清單。單次上限 512 個候選。回傳
-`checked`、`found_count`、`found`(各含 `subdomain` 與其 `ips`)。
+從兩個互補來源探索子網域:
+- `source="dns"`(預設）—— 透過 DNS 解析候選標籤。`wordlist` 為逗號分隔標籤
+  (`"www,api,dev"`);省略則用內建常見清單。單次上限 512 個候選,回傳解析到的 `ips`。
+- `source="ct"` —— 查詢公開的**憑證透明度(CT)log**(crt.sh),列出該網域歷來
+  簽過憑證的所有名稱。完全被動,能找出字典永遠猜不到的真實主機。
+- `source="both"` —— 兩者都跑並合併,記錄每個主機由哪個來源發現。
+
+回傳 `sources`、`found_count`、`found`(各含 `subdomain`、發現它的 `sources`,
+以及解析到時的 `ips`)。
 
 ### `tls_check(host, port=443, timeout?) -> dict`
 
@@ -140,6 +151,34 @@ server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它
 
 回傳 `grade`、`score`、觀察到的安全標頭,以及每項標頭附建議的 `findings`
 清單。預設走 HTTPS(port 443)。
+
+### `cookie_audit(host, port?, use_ssl=True, timeout?) -> dict`
+
+跟隨主機的重導鏈(上限 10 跳,標記任何 HTTPS→HTTP 降級),並檢查沿途每個
+`Set-Cookie` 的 `Secure`、`HttpOnly`、`SameSite` 旗標。回傳 `redirect_chain`、
+`final_url`、`cookies`(只有旗標 —— 絕不回傳 cookie 值)、`cookie_grade`、
+`cookie_score`,以及 `findings` 清單。
+
+### `cors_check(host, port?, use_ssl=True, timeout?) -> dict`
+
+送一個帶不受信任 `Origin` 的 GET,檢查 `Access-Control-Allow-Origin` /
+`-Allow-Credentials` 回應。反射任意 Origin **且**允許 credentials 屬高風險
+(任何網站都能讀取已驗證的回應);萬用字元或信任 `null` origin 則為次要問題。
+回傳 `acao`、`allows_credentials`、`reflects_origin`、`wildcard`、`severity`、
+`findings`。
+
+### `well_known_audit(host, timeout?) -> dict`
+
+抓取並解析 `security.txt`(RFC 9116,先試 `/.well-known/` 再試舊路徑)與
+`robots.txt`。回傳 `security_txt`(解析欄位、結構性 `issues`、`location`)與
+`robots_txt`(`sitemaps`、`disallow`/`allow` 路徑、`user_agents`),各含
+`present` 旗標。
+
+### `ip_info(host, timeout?) -> dict`
+
+解析主機 IP 並到公開 **RDAP** 註冊資料庫查詢(透過 rdap.org bootstrap 導向對應
+RIR)。回傳 `ip` 與 `rdap`(`handle`、`name`、`country`、`cidr`、`org`、
+`abuse_email`)。
 
 ### `port_scan(host, ports?, timeout?) -> dict`
 

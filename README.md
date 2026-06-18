@@ -27,9 +27,13 @@ instead of parsing console output.
 |------|--------------|
 | `recon_report` | **Start here.** One call → DNS, TLS, and HTTP headers checked together, with an overall grade |
 | `dns_recon` | DNS + WHOIS + email security (SPF/DMARC/DKIM), graded |
-| `subdomain_enum` | Discover subdomains via DNS (≤512 candidates/call), built-in or custom wordlist |
+| `subdomain_enum` | Discover subdomains via DNS brute-force and/or Certificate Transparency logs |
 | `tls_check` | Certificate, protocols, ciphers, and known TLS vulnerabilities, graded |
 | `http_headers_audit` | HTTP security headers (CSP, HSTS, X-Frame-Options, …), graded |
+| `cookie_audit` | Redirect chain + cookie flags (Secure / HttpOnly / SameSite), graded |
+| `cors_check` | CORS policy probe — flags arbitrary-Origin reflection and wildcard misuse |
+| `well_known_audit` | Fetches & parses `security.txt` (RFC 9116) and `robots.txt` |
+| `ip_info` | Resolves the host and enriches its IP via RDAP (owner, country, CIDR, abuse) |
 | `port_scan` | TCP port scan of one host (≤1024 ports/call), open ports + services |
 
 ## Example
@@ -52,8 +56,9 @@ Just ask your agent: *"run a security recon report on example.com."* It calls
 }
 ```
 
-Need more detail on one area? The agent can call `dns_recon`, `tls_check`,
-`http_headers_audit`, or `port_scan` directly.
+Need more detail on one area? The agent can call `dns_recon`, `subdomain_enum`,
+`tls_check`, `http_headers_audit`, `cookie_audit`, `cors_check`,
+`well_known_audit`, `ip_info`, or `port_scan` directly.
 
 ## Install
 
@@ -128,12 +133,19 @@ raw detail.
 
 `checks` is any subset of `["records", "whois", "email"]`; omit it to run all.
 
-### `subdomain_enum(domain, wordlist?, timeout?) -> dict`
+### `subdomain_enum(domain, wordlist?, source="dns", timeout?) -> dict`
 
-Resolves candidate subdomains via DNS and returns the ones that exist. `wordlist`
-is comma-separated labels (`"www,api,dev"`); omit it for a built-in common list.
-Capped at 512 candidates per call. Returns `checked`, `found_count`, and `found`
-(each with `subdomain` and its `ips`).
+Discovers subdomains from two complementary sources:
+- `source="dns"` (default) — resolves candidate labels via DNS. `wordlist` is
+  comma-separated labels (`"www,api,dev"`); omit it for a built-in common list.
+  Capped at 512 candidates per call. Returns resolved `ips`.
+- `source="ct"` — queries public **Certificate Transparency** logs (crt.sh) for
+  every name ever certified for the domain. Fully passive; finds real hosts no
+  wordlist would guess.
+- `source="both"` — runs both and merges, recording which source(s) saw each host.
+
+Returns `sources`, `found_count`, and `found` (each with `subdomain`, the
+`sources` that saw it, and `ips` when resolved).
 
 ### `tls_check(host, port=443, timeout?) -> dict`
 
@@ -146,6 +158,36 @@ and a `findings` list.
 
 Returns `grade`, `score`, the observed security headers, and a `findings`
 list with a recommendation per header. Defaults to HTTPS (port 443).
+
+### `cookie_audit(host, port?, use_ssl=True, timeout?) -> dict`
+
+Follows the redirect chain from the host (capped at 10 hops, flagging any
+HTTPS→HTTP downgrade) and audits every `Set-Cookie` seen for the `Secure`,
+`HttpOnly`, and `SameSite` flags. Returns `redirect_chain`, `final_url`,
+`cookies` (flags only — values are never returned), `cookie_grade`,
+`cookie_score`, and a `findings` list.
+
+### `cors_check(host, port?, use_ssl=True, timeout?) -> dict`
+
+Sends one GET with an untrusted `Origin` and inspects the
+`Access-Control-Allow-Origin` / `-Allow-Credentials` response. Reflecting an
+arbitrary Origin **with** credentials is high severity (any site can read
+authenticated responses); a wildcard or trusted `null` origin are lesser issues.
+Returns `acao`, `allows_credentials`, `reflects_origin`, `wildcard`, `severity`,
+and `findings`.
+
+### `well_known_audit(host, timeout?) -> dict`
+
+Fetches and parses `security.txt` (RFC 9116, tried at `/.well-known/` then the
+legacy path) and `robots.txt`. Returns `security_txt` (parsed fields, structural
+`issues`, `location`) and `robots_txt` (`sitemaps`, `disallow`/`allow` paths,
+`user_agents`), each with a `present` flag.
+
+### `ip_info(host, timeout?) -> dict`
+
+Resolves the host's IP and looks it up in the public **RDAP** registry (via
+rdap.org's bootstrap to the right RIR). Returns `ip` and `rdap` (`handle`,
+`name`, `country`, `cidr`, `org`, `abuse_email`).
 
 ### `port_scan(host, ports?, timeout?) -> dict`
 

@@ -16,7 +16,12 @@ from recon_mcp.tools.dns import DNSRecon
 from recon_mcp.tools.tls import SSLAnalyzer, quick_tls_check
 from recon_mcp.tools.http_headers import HTTPHeadersAnalyzer
 from recon_mcp.tools.portscan import PortScanner, PortScanError
-from recon_mcp.tools.subdomain import SubdomainEnumerator, SubdomainEnumError
+from recon_mcp.tools.subdomain import SubdomainEnumerator, SubdomainEnumError, merge_subdomain_sources
+from recon_mcp.tools.ct import query_crt_sh
+from recon_mcp.tools.wellknown import fetch_well_known
+from recon_mcp.tools.cookies import cookie_audit as _cookie_audit
+from recon_mcp.tools.rdap import ip_info as _ip_info
+from recon_mcp.tools.cors import cors_check as _cors_check
 from recon_mcp.tools.report import build_report
 from recon_mcp.util import normalize_host
 
@@ -25,12 +30,14 @@ mcp = FastMCP(
     instructions=(
         "recon-kit-mcp provides read-only network & security reconnaissance tools "
         "for a single target. Tools: recon_report (one-call DNS+TLS+headers overview "
-        "with an overall grade), dns_recon, subdomain_enum, tls_check, "
-        "http_headers_audit, and port_scan. Each returns structured JSON with a "
-        "letter grade — start with recon_report for the full picture. "
-        "Only run these against assets the user owns or is explicitly authorized to "
-        "assess (pentest engagement, CTF, or education); if authorization is unclear, "
-        "ask before scanning."
+        "with an overall grade), dns_recon, subdomain_enum (DNS brute-force and/or "
+        "Certificate Transparency logs), tls_check, http_headers_audit, cookie_audit "
+        "(redirect chain + cookie flags), cors_check, well_known_audit "
+        "(security.txt + robots.txt), ip_info (RDAP ownership), and port_scan. Most "
+        "return structured JSON with a letter grade — start with recon_report for the "
+        "full picture. Only run these against assets the user owns or is explicitly "
+        "authorized to assess (pentest engagement, CTF, or education); if "
+        "authorization is unclear, ask before scanning."
     ),
     website_url="https://github.com/nan786521/recon-mcp",
 )
@@ -172,28 +179,142 @@ def port_scan(
 def subdomain_enum(
     domain: str,
     wordlist: str | None = None,
+    source: str = "dns",
     timeout: float = 3.0,
 ) -> dict:
-    """Discover subdomains of a domain via DNS resolution.
+    """Discover subdomains of a domain via DNS brute-force and/or CT logs.
 
-    Probes candidate subdomain labels against the domain and returns those that
-    resolve. Passive recon (ordinary DNS A lookups), capped at 512 candidates
-    per call. Enumerate only domains you are authorized to assess.
+    Two complementary sources:
+      - "dns": probe candidate labels with DNS A lookups (active but light,
+        capped at 512 candidates). Returns resolved IPs.
+      - "ct": query public Certificate Transparency logs (crt.sh) for every
+        name ever certified for the domain — fully passive, and finds real
+        hosts no wordlist would guess.
+      - "both": run both and merge, marking which source saw each host.
+
+    Enumerate only domains you are authorized to assess.
 
     Args:
         domain: The base domain, e.g. "example.com".
-        wordlist: Comma-separated subdomain labels to try (e.g. "www,api,dev").
-            Omit to use a built-in list of common labels.
-        timeout: Per-query DNS timeout in seconds.
+        wordlist: Comma-separated labels for the DNS source (e.g. "www,api,dev").
+            Omit to use a built-in list of common labels. Ignored for "ct".
+        source: "dns" (default), "ct", or "both".
+        timeout: Per-query DNS timeout in seconds (the CT query uses its own
+            longer timeout since crt.sh can be slow).
 
     Returns:
-        A dict with domain, checked (count), found_count, and found (each with
-        subdomain and its resolved ips).
+        A dict with domain, sources, found_count, and found (each with
+        subdomain, the source(s) that saw it, and resolved ips when known).
     """
-    try:
-        return SubdomainEnumerator(timeout=timeout).enumerate(normalize_host(domain), wordlist=wordlist)
-    except SubdomainEnumError as e:
-        return {"domain": domain, "error": str(e)}
+    domain = normalize_host(domain)
+    src = (source or "dns").strip().lower()
+    if src not in ("dns", "ct", "both"):
+        return {"domain": domain, "error": "source must be one of: dns, ct, both"}
+
+    dns_result = ct_result = None
+    if src in ("dns", "both"):
+        try:
+            dns_result = SubdomainEnumerator(timeout=timeout).enumerate(domain, wordlist=wordlist)
+        except SubdomainEnumError as e:
+            dns_result = {"error": str(e)}
+    if src in ("ct", "both"):
+        ct_result = query_crt_sh(domain)
+
+    return merge_subdomain_sources(domain, dns_result, ct_result)
+
+
+@mcp.tool()
+@_safe_tool
+def well_known_audit(host: str, timeout: float = 5.0) -> dict:
+    """Fetch and parse a host's security.txt and robots.txt.
+
+    Both are standard public files. security.txt (RFC 9116) gives the
+    vulnerability-disclosure contact, policy, and encryption key; its absence is
+    itself a finding for a security-conscious site. robots.txt lists the paths
+    the operator asks crawlers to skip — frequently admin/internal areas worth
+    noting during recon.
+
+    Args:
+        host: Hostname to inspect, e.g. "example.com".
+        timeout: Per-request network timeout in seconds.
+
+    Returns:
+        A dict with host, security_txt (present flag, parsed fields, structural
+        issues, location), and robots_txt (present flag, sitemaps, disallow/allow
+        paths, user_agents).
+    """
+    return fetch_well_known(normalize_host(host), timeout=timeout)
+
+
+@mcp.tool()
+@_safe_tool
+def cookie_audit(host: str, port: int | None = None, use_ssl: bool = True,
+                 timeout: float = 5.0) -> dict:
+    """Follow a host's redirect chain and audit the cookies it sets.
+
+    Walks each redirect hop (capped at 10) from the host, recording status and
+    Location and flagging any HTTPS->HTTP downgrade. Every Set-Cookie seen along
+    the way is checked for the Secure, HttpOnly, and SameSite flags and graded.
+    Cookie values are never returned (they may be secrets).
+
+    Args:
+        host: Hostname to inspect, e.g. "example.com".
+        port: TCP port. Defaults to 443 when use_ssl is True, else 80.
+        use_ssl: Start the chain over HTTPS (default True).
+        timeout: Per-hop network timeout in seconds.
+
+    Returns:
+        A dict with host, redirect_chain, final_url, cookies (flags only),
+        cookie_grade, cookie_score, and a findings list.
+    """
+    return _cookie_audit(normalize_host(host), port=port, use_ssl=use_ssl, timeout=timeout)
+
+
+@mcp.tool()
+@_safe_tool
+def ip_info(host: str, timeout: float = 8.0) -> dict:
+    """Resolve a host and enrich its IP with RDAP registry ownership data.
+
+    Looks up the IP in the public RDAP registry (via rdap.org's bootstrap to the
+    right RIR) and reports who owns the address block, the country, the CIDR
+    range, and the abuse-reporting contact. Read-only registry query; nothing is
+    sent to the target.
+
+    Args:
+        host: Hostname or IP, e.g. "example.com".
+        timeout: Per-request network timeout in seconds.
+
+    Returns:
+        A dict with host, ip, and rdap (handle, name, country, cidr, org,
+        abuse_email). An unresolved host or RDAP failure is reported via an
+        error field.
+    """
+    return _ip_info(normalize_host(host), timeout=timeout)
+
+
+@mcp.tool()
+@_safe_tool
+def cors_check(host: str, port: int | None = None, use_ssl: bool = True,
+               timeout: float = 5.0) -> dict:
+    """Probe a host's CORS policy with a crafted Origin and flag misconfigurations.
+
+    Sends one GET with an untrusted Origin header and inspects the
+    Access-Control-Allow-Origin / -Allow-Credentials response. Reflecting an
+    arbitrary Origin while allowing credentials is high severity (any site can
+    read authenticated responses); a wildcard or a trusted 'null' origin are
+    lesser issues. One request, read-only.
+
+    Args:
+        host: Hostname to test, e.g. "example.com".
+        port: TCP port. Defaults to 443 when use_ssl is True, else 80.
+        use_ssl: Connect over HTTPS (default True).
+        timeout: Network timeout in seconds.
+
+    Returns:
+        A dict with host, port, test_origin, acao, allows_credentials,
+        reflects_origin, wildcard, severity, and a findings list.
+    """
+    return _cors_check(normalize_host(host), port=port, use_ssl=use_ssl, timeout=timeout)
 
 
 @mcp.tool()

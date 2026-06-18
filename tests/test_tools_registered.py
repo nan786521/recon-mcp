@@ -8,7 +8,11 @@ from recon_mcp.server import mcp
 def test_expected_tools_are_registered():
     tools = asyncio.run(mcp.list_tools())
     names = {t.name for t in tools}
-    assert {"dns_recon", "tls_check", "http_headers_audit"} <= names
+    assert {
+        "dns_recon", "tls_check", "http_headers_audit", "port_scan",
+        "subdomain_enum", "recon_report", "cookie_audit", "cors_check",
+        "well_known_audit", "ip_info",
+    } <= names
 
 
 def test_tools_have_descriptions():

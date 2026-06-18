@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-06-18
+
+### Added
+- `subdomain_enum` gained a **Certificate Transparency** source. Pass
+  `source="ct"` to query public CT logs (via crt.sh) for every name ever
+  certified for the domain — fully passive, and it finds real hosts no wordlist
+  would guess. `source="both"` merges DNS brute-force and CT, marking which
+  source saw each host.
+- `cookie_audit` — follows the redirect chain from a host (flagging any
+  HTTPS→HTTP downgrade) and audits every cookie set along the way for the
+  Secure, HttpOnly, and SameSite flags, with a letter grade. Cookie values are
+  never returned.
+- `cors_check` — probes the CORS policy with a crafted Origin and flags
+  misconfigurations, the worst being a server that reflects an arbitrary Origin
+  while allowing credentials (any site can read authenticated responses).
+- `well_known_audit` — fetches and parses `security.txt` (RFC 9116) and
+  `robots.txt`, surfacing the disclosure contact and the paths an operator asks
+  crawlers to avoid.
+- `ip_info` — resolves a host and enriches its IP with RDAP registry data
+  (owning org, country, CIDR block, abuse contact).
+
 ## [0.7.0] — 2026-06-16
 
 ### Fixed
@@ -91,6 +112,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.8.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.6.0
 [0.5.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.5.1
