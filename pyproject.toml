@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 authors = [{ name = "nan786521" }]
 keywords = ["mcp", "model-context-protocol", "security", "recon", "dns", "ssl", "claude", "codex", "cline"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: MIT License",
