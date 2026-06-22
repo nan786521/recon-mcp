@@ -34,6 +34,7 @@ instead of parsing console output.
 | `cookie_audit` | Redirect chain + cookie flags (Secure / HttpOnly / SameSite), graded |
 | `cors_check` | CORS policy probe — flags arbitrary-Origin reflection and wildcard misuse |
 | `tech_detect` | Fingerprint the web stack (server, CDN/WAF, language, framework, CMS, JS) from one GET |
+| `http_methods_audit` | Report which HTTP methods a server allows and grade the risk (TRACE/PUT/DELETE) |
 | `well_known_audit` | Fetches & parses `security.txt` (RFC 9116) and `robots.txt` |
 | `ip_info` | Resolves the host and enriches its IP via RDAP (owner, country, CIDR, abuse) |
 | `port_scan` | TCP port scan of one host (≤1024 ports/call), open ports + services |
@@ -60,8 +61,8 @@ Just ask your agent: *"run a security recon report on example.com."* It calls
 
 Need more detail on one area? The agent can call `dns_recon`, `subdomain_enum`,
 `subdomain_takeover`, `tls_check`, `http_headers_audit`, `cookie_audit`,
-`cors_check`, `tech_detect`, `well_known_audit`, `ip_info`, or `port_scan`
-directly.
+`cors_check`, `tech_detect`, `http_methods_audit`, `well_known_audit`,
+`ip_info`, or `port_scan` directly.
 
 ## Install
 
@@ -213,6 +214,20 @@ and flagged (`info`) — a precise version eases known-CVE lookup. Read-only.
 Returns `status`, `technology_count`, `technologies` (each with `name`,
 `category`, `version` when known, and `evidence`), and a `findings` list noting
 any version disclosure.
+
+### `http_methods_audit(host, port?, use_ssl=True, path="/", timeout?) -> dict`
+
+Reports which HTTP request methods a server allows and grades the risk. Enabled
+write/diagnostic methods widen the attack surface: **TRACE** enables Cross-Site
+Tracing (XST), and **PUT** / **DELETE** can allow file upload or deletion under
+weak access control. **Safe by design** — it never sends a mutating request: it
+actively probes only OPTIONS, HEAD, and TRACE (TRACE merely echoes), and reads
+PUT / DELETE / PATCH / CONNECT from the OPTIONS `Allow` header as *advertised*,
+never invoking them.
+
+Returns `grade`, `score`, `allow_header`, `advertised_methods`, `trace_enabled`,
+`dangerous_methods`, and a `findings` list (each with the method, severity, and a
+recommendation).
 
 ### `well_known_audit(host, timeout?) -> dict`
 

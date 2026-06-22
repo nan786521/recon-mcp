@@ -13,6 +13,7 @@ def test_expected_tools_are_registered():
         "dns_recon", "tls_check", "http_headers_audit", "port_scan",
         "subdomain_enum", "recon_report", "cookie_audit", "cors_check",
         "well_known_audit", "ip_info", "subdomain_takeover", "tech_detect",
+        "http_methods_audit",
     } <= names
 
 

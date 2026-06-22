@@ -25,6 +25,7 @@ from recon_mcp.tools.rdap import ip_info as _ip_info
 from recon_mcp.tools.cors import cors_check as _cors_check
 from recon_mcp.tools.takeover import check_takeover, check_takeovers
 from recon_mcp.tools.tech import tech_detect as _tech_detect
+from recon_mcp.tools.http_methods import http_methods_audit as _http_methods_audit
 from recon_mcp.tools.report import build_report
 from recon_mcp.util import normalize_host
 
@@ -37,7 +38,7 @@ mcp = FastMCP(
         "Certificate Transparency logs), subdomain_takeover (dangling-CNAME hijack "
         "risk), tls_check, http_headers_audit, cookie_audit "
         "(redirect chain + cookie flags), cors_check, tech_detect (web stack "
-        "fingerprint), well_known_audit "
+        "fingerprint), http_methods_audit (allowed HTTP methods), well_known_audit "
         "(security.txt + robots.txt), ip_info (RDAP ownership), and port_scan. Most "
         "return structured JSON with a letter grade — start with recon_report for the "
         "full picture. Only run these against assets the user owns or is explicitly "
@@ -357,6 +358,35 @@ def subdomain_takeover(hosts: str, timeout: float = 6.0) -> dict:
         dangling_cname, or vulnerable.
     """
     return check_takeovers([h for h in (hosts or "").split(",") if h.strip()], timeout=timeout)
+
+
+@mcp.tool()
+@_safe_tool
+def http_methods_audit(host: str, port: int | None = None, use_ssl: bool = True,
+                       path: str = "/", timeout: float = 5.0) -> dict:
+    """Audit which HTTP request methods a server allows and grade the risk.
+
+    Enabled write/diagnostic methods widen the attack surface: TRACE enables
+    Cross-Site Tracing (XST), and PUT / DELETE can allow file upload or deletion
+    under weak access control. This is read-only and never sends a mutating
+    request: it actively probes only OPTIONS, HEAD, and TRACE (TRACE merely
+    echoes the request); PUT, DELETE, PATCH, and CONNECT are read from the
+    OPTIONS Allow header and reported as advertised, never invoked.
+
+    Args:
+        host: Hostname to audit, e.g. "example.com".
+        port: TCP port. Defaults to 443 when use_ssl is True, else 80.
+        use_ssl: Connect over HTTPS (default True).
+        path: Request path to test (default "/").
+        timeout: Network timeout in seconds.
+
+    Returns:
+        A dict with host, url, grade, score, allow_header, advertised_methods,
+        trace_enabled, dangerous_methods, and a findings list. An error field on
+        fetch failure.
+    """
+    return _http_methods_audit(normalize_host(host), port=port, use_ssl=use_ssl,
+                               path=path, timeout=timeout)
 
 
 @mcp.tool()

@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] — 2026-06-22
+
+### Added
+- `http_methods_audit` — reports which HTTP request methods a server allows and
+  grades the risk (TRACE → Cross-Site Tracing; PUT / DELETE → file upload /
+  deletion under weak access control; CONNECT → open-proxy abuse). **Safe by
+  design:** it never sends a mutating request — it actively probes only OPTIONS,
+  HEAD, and TRACE (TRACE merely echoes), and reads PUT/DELETE/PATCH/CONNECT from
+  the OPTIONS `Allow` header as *advertised*, never invoking them. The grading
+  (`assess_methods`) is a pure function, split from the network and unit-tested.
+
 ## [0.12.0] — 2026-06-22
 
 ### Changed
@@ -196,6 +207,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.13.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.13.0
 [0.12.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.12.0
 [0.11.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.11.0
 [0.10.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.10.0
