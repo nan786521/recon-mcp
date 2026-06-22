@@ -33,7 +33,7 @@ WHOIS_SERVERS = {
 # DNS record type codes
 DNS_TYPES = {
     'A': 1, 'NS': 2, 'CNAME': 5, 'SOA': 6, 'MX': 15,
-    'TXT': 16, 'AAAA': 28, 'CAA': 257,
+    'TXT': 16, 'AAAA': 28, 'DNSKEY': 48, 'CAA': 257,
 }
 
 # Public DNS resolvers (for propagation checks)
@@ -288,8 +288,45 @@ class DNSRecon:
         if not result['dkim']:
             result['dkim'] = {'found': False}
 
+        # --- MTA-STS — TXT at _mta-sts.<domain> (SMTP downgrade protection) ---
+        result['mta_sts'] = {'found': False}
+        for rec in self.dns_query(f'_mta-sts.{domain}', 'TXT').get('records', []):
+            val = rec.get('value', '')
+            if val.startswith('v=STSv1'):
+                result['mta_sts'] = {'found': True, 'id': self._tag_value(val, 'id')}
+                break
+
+        # --- TLS-RPT — TXT at _smtp._tls.<domain> (SMTP TLS failure reporting) ---
+        result['tls_rpt'] = {'found': False}
+        for rec in self.dns_query(f'_smtp._tls.{domain}', 'TXT').get('records', []):
+            val = rec.get('value', '')
+            if val.startswith('v=TLSRPTv1'):
+                result['tls_rpt'] = {'found': True, 'rua': self._tag_value(val, 'rua')}
+                break
+
+        # --- BIMI — TXT at default._bimi.<domain> (brand logo; informational) ---
+        result['bimi'] = {'found': False}
+        for rec in self.dns_query(f'default._bimi.{domain}', 'TXT').get('records', []):
+            val = rec.get('value', '')
+            if val.startswith('v=BIMI1'):
+                result['bimi'] = {'found': True, 'record': val[:120]}
+                break
+
+        # --- DNSSEC — a DNSKEY at the apex means the zone is signed ---
+        dnskey = self.dns_query(domain, 'DNSKEY')
+        result['dnssec'] = {'enabled': bool(dnskey.get('records'))}
+
         result['assessment'] = grade_email_security(result)
         return result
+
+    @staticmethod
+    def _tag_value(record, tag):
+        """Pull a `tag=value` field out of a semicolon-delimited TXT record."""
+        for part in record.split(';'):
+            key, sep, value = part.strip().partition('=')
+            if sep and key.strip().lower() == tag.lower():
+                return value.strip()
+        return None
 
     # ==================== DNS packet build / parse ====================
 
@@ -533,6 +570,55 @@ def grade_email_security(email):
                 'message': f'DMARC present but not enforced (p={policy}); it only monitors, spoofed mail is still delivered.',
                 'recommendation': 'After reviewing reports, raise the policy to p=quarantine then p=reject.',
             })
+
+    # --- Advisory transport / authenticity signals ---
+    # These are secondary to SPF/DKIM/DMARC, so they surface as findings but do
+    # not move the core letter grade. Each block only runs when the caller
+    # supplied the field, so the SPF/DKIM/DMARC-only grading stays unchanged.
+    if 'mta_sts' in email:
+        if (email['mta_sts'] or {}).get('found'):
+            findings.append({
+                'severity': 'ok', 'check': 'MTA-STS',
+                'message': 'MTA-STS policy published; senders can enforce TLS for SMTP delivery.',
+            })
+        else:
+            findings.append({
+                'severity': 'info', 'check': 'MTA-STS',
+                'message': 'No MTA-STS policy. Senders cannot enforce TLS for SMTP delivery, leaving mail open to downgrade attacks.',
+                'recommendation': 'Publish an MTA-STS policy (a _mta-sts TXT record plus a /.well-known/mta-sts.txt policy file).',
+            })
+
+    if 'tls_rpt' in email:
+        if (email['tls_rpt'] or {}).get('found'):
+            findings.append({
+                'severity': 'ok', 'check': 'TLS-RPT',
+                'message': 'TLS-RPT configured; you receive reports of SMTP TLS delivery failures.',
+            })
+        else:
+            findings.append({
+                'severity': 'info', 'check': 'TLS-RPT',
+                'message': 'No TLS-RPT record. You get no reports when senders fail to establish TLS for mail delivery.',
+                'recommendation': 'Publish a _smtp._tls TXT record with "v=TLSRPTv1; rua=mailto:...".',
+            })
+
+    if 'dnssec' in email:
+        if (email['dnssec'] or {}).get('enabled'):
+            findings.append({
+                'severity': 'ok', 'check': 'DNSSEC',
+                'message': 'DNSSEC is enabled; DNS answers for this zone are cryptographically signed.',
+            })
+        else:
+            findings.append({
+                'severity': 'info', 'check': 'DNSSEC',
+                'message': 'DNSSEC is not enabled. DNS answers can be spoofed without detection, undermining SPF/DKIM/DMARC lookups.',
+                'recommendation': 'Enable DNSSEC signing at your DNS provider and publish a DS record at the registrar.',
+            })
+
+    if (email.get('bimi') or {}).get('found'):
+        findings.append({
+            'severity': 'ok', 'check': 'BIMI',
+            'message': 'BIMI record present; compliant inboxes can display your brand logo on authenticated mail.',
+        })
 
     score = max(score, 0)
     grade = (

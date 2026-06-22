@@ -125,8 +125,10 @@ server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它
 
 - **records** —— A、AAAA、MX、NS、TXT、SOA、CNAME、CAA 紀錄
 - **whois** —— 解析後的註冊欄位 + 原始 WHOIS 文字
-- **email** —— SPF、DMARC、DKIM 設定狀態,並附分級 `assessment`
-  (字母等級 A–F、一句總結,以及每項的 findings:含 severity 與建議修法)
+- **email** —— SPF、DMARC、DKIM 設定狀態,外加 **MTA-STS**、**TLS-RPT**、
+  **BIMI**、**DNSSEC** 等進階訊號,並附分級 `assessment`(字母等級 A–F、一句
+  總結,以及每項的 findings:含 severity 與建議修法)。進階訊號只以 findings
+  呈現,不影響 SPF/DKIM/DMARC 的核心等級。
 
 `checks` 可填 `["records", "whois", "email"]` 的任意子集;省略則三項全跑。
 

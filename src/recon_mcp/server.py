@@ -83,7 +83,8 @@ def dns_recon(
         A structured dict keyed by the requested checks:
           - records: DNS records grouped by type (A, AAAA, MX, NS, TXT, SOA, CNAME)
           - whois: parsed registration fields plus the raw WHOIS text
-          - email: SPF / DMARC / DKIM posture
+          - email: SPF / DMARC / DKIM posture, plus advisory MTA-STS, TLS-RPT,
+            BIMI, and DNSSEC signals, with a graded assessment
     """
     domain = normalize_host(domain)
     selected = checks or ["records", "whois", "email"]

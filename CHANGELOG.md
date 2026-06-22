@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-06-22
+
+### Added
+- `dns_recon`'s email analysis now also reports **MTA-STS** (`_mta-sts` TXT,
+  SMTP TLS enforcement), **TLS-RPT** (`_smtp._tls` TXT, SMTP TLS failure
+  reporting), **BIMI** (`default._bimi` TXT, brand logo), and **DNSSEC** (a
+  DNSKEY at the apex means the zone is signed). All four are passive DNS lookups.
+  They surface as graded findings (missing MTA-STS/TLS-RPT/DNSSEC are advisory
+  `info`; present ones are `ok`) but, being secondary to SPF/DKIM/DMARC, do not
+  move the core email letter grade. `recon_report` inherits them.
+
 ## [0.9.0] — 2026-06-22
 
 ### Added
@@ -162,6 +173,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.10.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.9.0
 [0.8.4]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.4
 [0.8.3]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.3

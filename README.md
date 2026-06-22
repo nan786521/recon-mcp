@@ -128,9 +128,11 @@ raw detail.
 
 - **records** — A, AAAA, MX, NS, TXT, SOA, CNAME, CAA records
 - **whois** — parsed registration fields + raw WHOIS text
-- **email** — SPF, DMARC, and DKIM posture, plus a graded `assessment`
+- **email** — SPF, DMARC, and DKIM posture, plus advisory **MTA-STS**,
+  **TLS-RPT**, **BIMI**, and **DNSSEC** signals, and a graded `assessment`
   (letter grade A–F, a summary, and per-check findings with severity and a
-  recommended fix)
+  recommended fix). The advisory signals surface as findings but don't move the
+  core SPF/DKIM/DMARC grade.
 
 `checks` is any subset of `["records", "whois", "email"]`; omit it to run all.
 

@@ -1,6 +1,13 @@
 """Offline unit tests for the email-security grading logic."""
 
-from recon_mcp.tools.dns import grade_email_security
+from recon_mcp.tools.dns import DNSRecon, grade_email_security
+
+
+def test_tag_value_extracts_field():
+    rec = "v=TLSRPTv1; rua=mailto:tls@x.io"
+    assert DNSRecon._tag_value(rec, "rua") == "mailto:tls@x.io"
+    assert DNSRecon._tag_value(rec, "v") == "TLSRPTv1"
+    assert DNSRecon._tag_value(rec, "missing") is None
 
 
 def _email(spf=None, dmarc=None, dkim=None):
@@ -79,3 +86,54 @@ def test_findings_carry_recommendations_when_not_ok():
     for f in a["findings"]:
         if f["severity"] != "ok":
             assert f.get("recommendation")
+
+
+# ---- advisory transport / authenticity signals -----------------------------
+
+def _checks(assessment):
+    return {f["check"] for f in assessment["findings"]}
+
+
+def test_advisory_checks_absent_when_keys_not_supplied():
+    # The core SPF/DKIM/DMARC-only path must not emit the new checks at all,
+    # and the score must stay exactly as before.
+    a = grade_email_security(_email())
+    assert _checks(a) == {"SPF", "DKIM", "DMARC"}
+    assert a["score"] == 20
+
+
+def test_missing_transport_signals_are_info_without_score_change():
+    email = _email(
+        spf={"found": True, "all_mechanism": "fail"},
+        dmarc={"found": True, "policy": "reject"},
+        dkim={"found": True, "selector": "default"},
+    )
+    email.update(
+        mta_sts={"found": False}, tls_rpt={"found": False},
+        bimi={"found": False}, dnssec={"enabled": False},
+    )
+    a = grade_email_security(email)
+    assert a["score"] == 100  # advisory findings never move the core grade
+    for check in ("MTA-STS", "TLS-RPT", "DNSSEC"):
+        sev = [f["severity"] for f in a["findings"] if f["check"] == check]
+        assert sev == ["info"]
+    assert "BIMI" not in _checks(a)  # missing BIMI is not flagged (informational)
+
+
+def test_present_transport_signals_are_ok():
+    email = _email(
+        spf={"found": True, "all_mechanism": "fail"},
+        dmarc={"found": True, "policy": "reject"},
+        dkim={"found": True, "selector": "default"},
+    )
+    email.update(
+        mta_sts={"found": True, "id": "20260622T000000"},
+        tls_rpt={"found": True, "rua": "mailto:tls@x.io"},
+        bimi={"found": True, "record": "v=BIMI1; l=https://x.io/logo.svg"},
+        dnssec={"enabled": True},
+    )
+    a = grade_email_security(email)
+    assert a["score"] == 100
+    for check in ("MTA-STS", "TLS-RPT", "DNSSEC", "BIMI"):
+        sev = [f["severity"] for f in a["findings"] if f["check"] == check]
+        assert sev == ["ok"]
