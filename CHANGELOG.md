@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] — 2026-06-22
+
+### Changed
+- `recon_report` is now a fuller one-stop overview: alongside email/TLS/headers
+  it also runs `tech_detect` (web-stack fingerprint) and a dangling-CNAME
+  takeover check on the apex, all concurrently. The report gains a `tech`
+  section (detected technologies + any version disclosure) and, when the apex
+  is at risk, a `takeover` section — a confirmed takeover is surfaced as a
+  critical issue and caps the overall grade at F. The three graded components
+  (email/TLS/headers) still drive the grade otherwise; `build_report`'s new
+  arguments are optional, so existing behavior is unchanged when they're absent.
+
 ## [0.11.0] — 2026-06-22
 
 ### Added
@@ -184,6 +196,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.12.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.12.0
 [0.11.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.11.0
 [0.10.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.9.0

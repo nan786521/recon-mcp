@@ -82,3 +82,49 @@ def test_build_report_all_failed():
     r = build_report("x.test", {"error": "e"}, {"error": "e"}, {"error": "e"})
     assert r["overall_grade"] is None
     assert "Could not assess" in r["summary"]
+
+
+def _tech():
+    return {
+        "technologies": [
+            {"name": "nginx", "category": "Web Server", "version": "1.25.3", "evidence": "header"},
+            {"name": "WordPress", "category": "CMS", "version": "6.4", "evidence": "html body"},
+        ],
+        "findings": [
+            {"severity": "info", "check": "nginx", "message": "nginx version 1.25.3 disclosed"},
+        ],
+    }
+
+
+def test_tech_section_is_attached_and_informational():
+    r = build_report("example.com", _dns("A"), _tls("B"), _headers("A"), tech_result=_tech())
+    assert "tech" in r
+    assert {t["name"] for t in r["tech"]["technologies"]} == {"nginx", "WordPress"}
+    assert r["tech"]["version_disclosure"][0]["detail"].startswith("nginx version")
+    # tech is informational — it must not change the overall grade
+    assert r["overall_grade"] == "B"
+
+
+def test_tech_error_is_reported_without_breaking():
+    r = build_report("example.com", _dns("A"), _tls("A"), _headers("A"),
+                     tech_result={"error": "timeout"})
+    assert r["tech"] == {"error": "timeout"}
+    assert r["overall_grade"] == "A"
+
+
+def test_takeover_omitted_when_not_vulnerable():
+    r = build_report("example.com", _dns("A"), _tls("A"), _headers("A"),
+                     takeover_result={"status": "not_applicable", "vulnerable": False})
+    assert "takeover" not in r
+    assert r["overall_grade"] == "A"
+
+
+def test_takeover_vulnerable_caps_grade_and_is_surfaced():
+    takeover = {"status": "vulnerable", "vulnerable": True, "severity": "high",
+                "cname": "victim.github.io", "service": "GitHub Pages",
+                "detail": "unclaimed resource"}
+    r = build_report("example.com", _dns("A"), _tls("A"), _headers("A"),
+                     takeover_result=takeover)
+    assert r["overall_grade"] == "F"  # capped despite A/A/A components
+    assert r["takeover"]["service"] == "GitHub Pages"
+    assert "takeover" in r["summary"].lower()

@@ -119,10 +119,13 @@ prompt menu and pass a domain for a guided, severity-sorted audit.
 
 ### `recon_report(domain, timeout?) -> dict`
 
-Runs DNS/email, TLS, and HTTP-header checks together and returns `overall_grade`
-(as weak as the weakest component), a one-line `summary`, and `components`
-(`email` / `tls` / `headers`), each with its `grade` and actionable `issues`.
-Uses a fast single-handshake TLS check for speed — call `tls_check` for the full
+Runs DNS/email, TLS, HTTP-header, web-stack (`tech_detect`), and apex
+subdomain-takeover checks together and returns `overall_grade` (as weak as the
+weakest component, capped at F if a live takeover is found), a one-line
+`summary`, `components` (`email` / `tls` / `headers`, each with its `grade` and
+actionable `issues`), a `tech` section (detected technologies + any version
+disclosure), and a `takeover` section when the apex is at risk. Uses a fast
+single-handshake TLS check for speed — call `tls_check` for the full
 cipher/vulnerability analysis. The best starting point; use the tools below for
 raw detail.
 

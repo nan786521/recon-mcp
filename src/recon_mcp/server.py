@@ -23,7 +23,7 @@ from recon_mcp.tools.wellknown import fetch_well_known
 from recon_mcp.tools.cookies import cookie_audit as _cookie_audit
 from recon_mcp.tools.rdap import ip_info as _ip_info
 from recon_mcp.tools.cors import cors_check as _cors_check
-from recon_mcp.tools.takeover import check_takeovers
+from recon_mcp.tools.takeover import check_takeover, check_takeovers
 from recon_mcp.tools.tech import tech_detect as _tech_detect
 from recon_mcp.tools.report import build_report
 from recon_mcp.util import normalize_host
@@ -390,19 +390,23 @@ def tech_detect(host: str, port: int | None = None, use_ssl: bool = True,
 def recon_report(domain: str, timeout: float = 5.0) -> dict:
     """One-shot security posture report for a domain.
 
-    Runs DNS/email, TLS, and HTTP-header recon concurrently and returns a
-    single graded overview: an overall grade (as weak as the weakest
-    component), each component's grade, and the actionable issues found. Use
-    this for a quick full picture; call the individual tools for raw detail.
+    Runs DNS/email, TLS, HTTP-header, web-stack (tech_detect), and apex
+    subdomain-takeover recon concurrently and returns a single graded overview:
+    an overall grade (as weak as the weakest component, and capped at F if a
+    live takeover is found), each component's grade, the actionable issues
+    found, the detected technology stack, and any takeover risk. Use this for a
+    quick full picture; call the individual tools for raw detail.
 
     Args:
         domain: The domain to assess, e.g. "example.com".
         timeout: Per-connection network timeout in seconds.
 
     Returns:
-        A dict with domain, ip, overall_grade, summary, and components
-        (email / tls / headers), each with a grade and a list of issues. A
-        component that errors is reported without breaking the rest.
+        A dict with domain, ip, overall_grade, summary, components
+        (email / tls / headers, each with a grade and issues), a tech section
+        (detected technologies + any version disclosure), and a takeover section
+        when the apex is at risk. A check that errors is reported without
+        breaking the rest.
     """
     domain = normalize_host(domain)
     recon = DNSRecon(timeout=timeout)
@@ -415,18 +419,23 @@ def recon_report(domain: str, timeout: float = 5.0) -> dict:
 
     # A quick single-handshake TLS check keeps the report fast; tls_check does the
     # full analysis (cipher enumeration, vulnerabilities) on demand.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         f_email = pool.submit(_safe, lambda: recon.analyze_email_security(domain))
         f_records = pool.submit(_safe, lambda: recon.dns_query_all(domain))
         f_tls = pool.submit(_safe, lambda: quick_tls_check(domain, timeout=timeout))
         f_headers = pool.submit(_safe, lambda: HTTPHeadersAnalyzer(timeout=timeout).analyze(domain, port=443, use_ssl=True))
+        f_tech = pool.submit(_safe, lambda: _tech_detect(domain, timeout=timeout))
+        f_takeover = pool.submit(_safe, lambda: check_takeover(domain, timeout=timeout))
 
         dns_result = {"email": {"assessment": (f_email.result() or {}).get("assessment", {})},
                       "records": (f_records.result() or {}).get("records", {})}
         tls_result = f_tls.result()
         headers_result = f_headers.result()
+        tech_result = f_tech.result()
+        takeover_result = f_takeover.result()
 
-    return build_report(domain, dns_result, tls_result, headers_result)
+    return build_report(domain, dns_result, tls_result, headers_result,
+                         tech_result=tech_result, takeover_result=takeover_result)
 
 
 @mcp.prompt(title="Security recon report")

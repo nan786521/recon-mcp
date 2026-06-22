@@ -45,8 +45,15 @@ def _component(grade, issues, **extra):
     return comp
 
 
-def build_report(domain, dns_result, tls_result, headers_result):
-    """Combine the three component results into one graded report.
+def build_report(domain, dns_result, tls_result, headers_result,
+                 tech_result=None, takeover_result=None):
+    """Combine the component results into one graded report.
+
+    The three graded components (email, TLS, headers) drive the overall grade.
+    `tech_result` (from tech_detect) and `takeover_result` (from a takeover
+    check on the apex) are optional: tech is attached as an informational
+    section, and a confirmed dangling-CNAME takeover is surfaced as a critical
+    issue that caps the overall grade at F.
 
     Each component result may instead be `{"error": ...}`; that component is
     reported with grade None and surfaced as an error issue, but does not break
@@ -94,19 +101,49 @@ def build_report(domain, dns_result, tls_result, headers_result):
     overall = worst_grade([email["grade"], tls["grade"], headers["grade"]])
     total_issues = len(email["issues"]) + len(tls["issues"]) + len(headers["issues"])
 
+    report = {
+        "domain": domain,
+        "ip": ip,
+        "overall_grade": overall,
+        "components": {"email": email, "tls": tls, "headers": headers},
+    }
+
+    # --- tech stack (informational; no grade) ---
+    if tech_result is not None:
+        if tech_result.get("error"):
+            report["tech"] = {"error": tech_result["error"]}
+        else:
+            report["tech"] = {
+                "technologies": tech_result.get("technologies", []),
+                "version_disclosure": [
+                    {"label": f.get("check") or "version", "detail": f.get("message", "")}
+                    for f in tech_result.get("findings", [])
+                ],
+            }
+
+    # --- subdomain takeover on the apex (only surfaced when actually at risk) ---
+    takeover_note = ""
+    if takeover_result and takeover_result.get("vulnerable"):
+        report["takeover"] = {
+            "status": takeover_result.get("status"),
+            "cname": takeover_result.get("cname"),
+            "service": takeover_result.get("service"),
+            "severity": takeover_result.get("severity", "high"),
+            "detail": takeover_result.get("detail", ""),
+        }
+        total_issues += 1
+        overall = worst_grade([overall, "F"])  # a live takeover is critical
+        report["overall_grade"] = overall
+        takeover_note = " A dangling-CNAME takeover risk was found on the apex."
+
     if overall is None:
         summary = f"Could not assess {domain} — all checks failed or returned no grade."
     else:
         summary = (
             f"Overall posture {overall} for {domain}: "
             f"email {email['grade']}, TLS {tls['grade']}, headers {headers['grade']}; "
-            f"{total_issues} actionable issue(s)."
+            f"{total_issues} actionable issue(s).{takeover_note}"
         )
 
-    return {
-        "domain": domain,
-        "ip": ip,
-        "overall_grade": overall,
-        "summary": summary,
-        "components": {"email": email, "tls": tls, "headers": headers},
-    }
+    report["summary"] = summary
+    return report

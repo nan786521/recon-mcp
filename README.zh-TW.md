@@ -116,9 +116,11 @@ server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它
 
 ### `recon_report(domain, timeout?) -> dict`
 
-一次跑完 DNS/郵件、TLS、HTTP 標頭檢查,回傳 `overall_grade`(以最弱的元件
-為準)、一行 `summary`,以及 `components`(`email` / `tls` / `headers`),
-每項含自己的 `grade` 與可行動的 `issues`。為求快速,TLS 採單次握手的輕量檢查
+一次跑完 DNS/郵件、TLS、HTTP 標頭、網站技術(`tech_detect`)與 apex 子網域
+接管檢查,回傳 `overall_grade`(以最弱的元件為準;若發現實際接管風險則封頂為
+F)、一行 `summary`、`components`(`email` / `tls` / `headers`,每項含自己的
+`grade` 與可行動的 `issues`)、一個 `tech` 區段(偵測到的技術 + 版本洩漏),
+以及 apex 有風險時的 `takeover` 區段。為求快速,TLS 採單次握手的輕量檢查
 ——要完整的加密套件/漏洞分析請用 `tls_check`。**建議的起點**;要原始細節再用
 下面各別工具。
 
