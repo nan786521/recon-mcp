@@ -24,6 +24,7 @@ from recon_mcp.tools.cookies import cookie_audit as _cookie_audit
 from recon_mcp.tools.rdap import ip_info as _ip_info
 from recon_mcp.tools.cors import cors_check as _cors_check
 from recon_mcp.tools.takeover import check_takeovers
+from recon_mcp.tools.tech import tech_detect as _tech_detect
 from recon_mcp.tools.report import build_report
 from recon_mcp.util import normalize_host
 
@@ -35,7 +36,8 @@ mcp = FastMCP(
         "with an overall grade), dns_recon, subdomain_enum (DNS brute-force and/or "
         "Certificate Transparency logs), subdomain_takeover (dangling-CNAME hijack "
         "risk), tls_check, http_headers_audit, cookie_audit "
-        "(redirect chain + cookie flags), cors_check, well_known_audit "
+        "(redirect chain + cookie flags), cors_check, tech_detect (web stack "
+        "fingerprint), well_known_audit "
         "(security.txt + robots.txt), ip_info (RDAP ownership), and port_scan. Most "
         "return structured JSON with a letter grade — start with recon_report for the "
         "full picture. Only run these against assets the user owns or is explicitly "
@@ -355,6 +357,32 @@ def subdomain_takeover(hosts: str, timeout: float = 6.0) -> dict:
         dangling_cname, or vulnerable.
     """
     return check_takeovers([h for h in (hosts or "").split(",") if h.strip()], timeout=timeout)
+
+
+@mcp.tool()
+@_safe_tool
+def tech_detect(host: str, port: int | None = None, use_ssl: bool = True,
+                timeout: float = 10.0) -> dict:
+    """Fingerprint the technology stack behind a website from one HTTP GET.
+
+    Passively identifies the web server, reverse proxy / CDN, WAF, programming
+    language, web framework, CMS, JavaScript framework, and analytics by matching
+    response headers, set cookies, the HTML body, and the meta-generator tag
+    against a signature table. Disclosed versions are captured and flagged
+    (a precise version eases known-CVE lookup). One read-only HTTP GET.
+
+    Args:
+        host: Hostname to fingerprint, e.g. "example.com".
+        port: TCP port. Defaults to 443 when use_ssl is True, else 80.
+        use_ssl: Connect over HTTPS (default True).
+        timeout: Network timeout in seconds.
+
+    Returns:
+        A dict with host, url, status, technology_count, technologies (each with
+        name, category, version when known, and evidence), and a findings list
+        noting any version disclosure. An error field on fetch failure.
+    """
+    return _tech_detect(normalize_host(host), port=port, use_ssl=use_ssl, timeout=timeout)
 
 
 @mcp.tool()

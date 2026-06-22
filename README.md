@@ -33,6 +33,7 @@ instead of parsing console output.
 | `http_headers_audit` | HTTP security headers (CSP, HSTS, X-Frame-Options, …), graded |
 | `cookie_audit` | Redirect chain + cookie flags (Secure / HttpOnly / SameSite), graded |
 | `cors_check` | CORS policy probe — flags arbitrary-Origin reflection and wildcard misuse |
+| `tech_detect` | Fingerprint the web stack (server, CDN/WAF, language, framework, CMS, JS) from one GET |
 | `well_known_audit` | Fetches & parses `security.txt` (RFC 9116) and `robots.txt` |
 | `ip_info` | Resolves the host and enriches its IP via RDAP (owner, country, CIDR, abuse) |
 | `port_scan` | TCP port scan of one host (≤1024 ports/call), open ports + services |
@@ -59,7 +60,8 @@ Just ask your agent: *"run a security recon report on example.com."* It calls
 
 Need more detail on one area? The agent can call `dns_recon`, `subdomain_enum`,
 `subdomain_takeover`, `tls_check`, `http_headers_audit`, `cookie_audit`,
-`cors_check`, `well_known_audit`, `ip_info`, or `port_scan` directly.
+`cors_check`, `tech_detect`, `well_known_audit`, `ip_info`, or `port_scan`
+directly.
 
 ## Install
 
@@ -195,6 +197,19 @@ arbitrary Origin **with** credentials is high severity (any site can read
 authenticated responses); a wildcard or trusted `null` origin are lesser issues.
 Returns `acao`, `allows_credentials`, `reflects_origin`, `wildcard`, `severity`,
 and `findings`.
+
+### `tech_detect(host, port?, use_ssl=True, timeout?) -> dict`
+
+Fingerprints the technology stack behind a website from **one HTTP GET**. It
+matches response headers, set cookies, the HTML body, and the
+`<meta name="generator">` tag against a signature table to identify the web
+server, reverse proxy / CDN, WAF, programming language, web framework, CMS,
+JavaScript framework, and analytics. Where a version is exposed it is captured
+and flagged (`info`) — a precise version eases known-CVE lookup. Read-only.
+
+Returns `status`, `technology_count`, `technologies` (each with `name`,
+`category`, `version` when known, and `evidence`), and a `findings` list noting
+any version disclosure.
 
 ### `well_known_audit(host, timeout?) -> dict`
 

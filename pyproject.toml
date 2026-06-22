@@ -1,6 +1,6 @@
 [project]
 name = "recon-kit-mcp"
-version = "0.10.0"
+version = "0.11.0"
 description = "An MCP server that gives AI coding agents (Claude Code, Codex, Cline) safe, structured network & security reconnaissance tools — DNS, WHOIS, TLS, HTTP headers, and port scanning. For authorized testing and education only."
 readme = "README.md"
 license = { text = "MIT" }

@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — 2026-06-22
+
+### Added
+- `tech_detect` — passive web technology fingerprinting from a single HTTP GET.
+  Identifies the web server, reverse proxy / CDN, WAF, programming language, web
+  framework, CMS, JavaScript framework, and analytics by matching response
+  headers, set cookies, the HTML body, and the meta-generator tag against a
+  signature table. Disclosed versions are captured and flagged as `info`
+  findings (a precise version eases known-CVE lookup). The signature matching is
+  a pure function, split from the network and unit-tested offline.
+
 ## [0.10.0] — 2026-06-22
 
 ### Added
@@ -173,6 +184,7 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.11.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.11.0
 [0.10.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.9.0
 [0.8.4]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.4
