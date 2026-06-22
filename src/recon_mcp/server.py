@@ -23,6 +23,7 @@ from recon_mcp.tools.wellknown import fetch_well_known
 from recon_mcp.tools.cookies import cookie_audit as _cookie_audit
 from recon_mcp.tools.rdap import ip_info as _ip_info
 from recon_mcp.tools.cors import cors_check as _cors_check
+from recon_mcp.tools.takeover import check_takeovers
 from recon_mcp.tools.report import build_report
 from recon_mcp.util import normalize_host
 
@@ -32,7 +33,8 @@ mcp = FastMCP(
         "recon-kit-mcp provides read-only network & security reconnaissance tools "
         "for a single target. Tools: recon_report (one-call DNS+TLS+headers overview "
         "with an overall grade), dns_recon, subdomain_enum (DNS brute-force and/or "
-        "Certificate Transparency logs), tls_check, http_headers_audit, cookie_audit "
+        "Certificate Transparency logs), subdomain_takeover (dangling-CNAME hijack "
+        "risk), tls_check, http_headers_audit, cookie_audit "
         "(redirect chain + cookie flags), cors_check, well_known_audit "
         "(security.txt + robots.txt), ip_info (RDAP ownership), and port_scan. Most "
         "return structured JSON with a letter grade — start with recon_report for the "
@@ -326,6 +328,36 @@ def cors_check(host: str, port: int | None = None, use_ssl: bool = True,
 
 @mcp.tool()
 @_safe_tool
+def subdomain_takeover(hosts: str, timeout: float = 6.0) -> dict:
+    """Check subdomains for a dangling-CNAME takeover risk.
+
+    A subdomain is takeover-prone when it CNAMEs to a third-party service
+    (GitHub Pages, S3, Heroku, Azure, ...) whose resource was deleted or never
+    claimed — anyone who registers that resource then controls the subdomain.
+    For each host this resolves the CNAME, recognizes known takeover-prone
+    services, fetches the page, and flags the provider's "unclaimed resource"
+    fingerprint and/or a CNAME target that no longer resolves.
+
+    Read-only recon (DNS lookups + one HTTP GET per host). Pair it with
+    subdomain_enum: enumerate first, then pass the interesting hosts here. Only
+    check domains you are authorized to assess.
+
+    Args:
+        hosts: One hostname or a comma-separated list, e.g.
+            "blog.example.com,shop.example.com". Capped at 100 per call.
+        timeout: Per-probe network timeout in seconds.
+
+    Returns:
+        A dict with checked, vulnerable_count, and results (one entry per host
+        with host, cname, service, status, vulnerable, severity, and detail).
+        status is one of not_applicable, not_vulnerable, potential,
+        dangling_cname, or vulnerable.
+    """
+    return check_takeovers([h for h in (hosts or "").split(",") if h.strip()], timeout=timeout)
+
+
+@mcp.tool()
+@_safe_tool
 def recon_report(domain: str, timeout: float = 5.0) -> dict:
     """One-shot security posture report for a domain.
 
@@ -374,7 +406,9 @@ def security_recon(domain: str) -> str:
     return (
         f"Run a security reconnaissance report on {domain}, then summarize it for me.\n\n"
         f"1. Call `recon_report` on {domain} to get the overall posture.\n"
-        f"2. Optionally run `subdomain_enum` to see exposed subdomains.\n"
+        f"2. Optionally run `subdomain_enum` to see exposed subdomains, then "
+        f"`subdomain_takeover` on any that look interesting to flag dangling-CNAME "
+        f"hijack risks.\n"
         f"3. Report the overall grade and each component's grade (email, TLS, headers), "
         f"then list the top issues by severity, each with a concrete fix.\n\n"
         f"Only proceed if I am authorized to assess {domain}."

@@ -26,6 +26,7 @@
 | `recon_report` | **從這開始。** 一次呼叫 → 同時檢查 DNS、TLS、HTTP 標頭,給整體評級 |
 | `dns_recon` | DNS + WHOIS + 郵件安全(SPF/DMARC/DKIM),含分級 |
 | `subdomain_enum` | 透過 DNS 字典暴力與/或憑證透明度(CT)log 探索子網域 |
+| `subdomain_takeover` | 檢查子網域是否有懸空 CNAME 接管風險(比對已知服務指紋)|
 | `tls_check` | 憑證、協定、加密套件、已知 TLS 漏洞,含分級 |
 | `http_headers_audit` | HTTP 安全標頭(CSP、HSTS、X-Frame-Options……),含分級 |
 | `cookie_audit` | 重導鏈 + Cookie 旗標(Secure / HttpOnly / SameSite),含分級 |
@@ -54,7 +55,7 @@
 }
 ```
 
-想深入某一項?agent 可以直接呼叫 `dns_recon`、`subdomain_enum`、`tls_check`、
+想深入某一項?agent 可以直接呼叫 `dns_recon`、`subdomain_enum`、`subdomain_takeover`、`tls_check`、
 `http_headers_audit`、`cookie_audit`、`cors_check`、`well_known_audit`、
 `ip_info` 或 `port_scan`。
 
@@ -140,6 +141,21 @@ server 也內建 **`security_recon` prompt**:在用戶端的 prompt 選單選它
 
 回傳 `sources`、`found_count`、`found`(各含 `subdomain`、發現它的 `sources`,
 以及解析到時的 `ips`)。
+
+### `subdomain_takeover(hosts, timeout?) -> dict`
+
+檢查子網域是否有**懸空 CNAME 接管(dangling-CNAME takeover)**風險:當子網域以
+CNAME 指向第三方服務(GitHub Pages、S3、Heroku、Azure、Fastly、Shopify…),
+而該資源已被刪除或從未被認領時,任何人只要去註冊該資源,就能在受害者的子網域上
+提供內容。對每個 host 會解析 CNAME、辨識已知易被接管的服務、抓取頁面,並標記
+服務商的「未認領資源」指紋,以及/或已無法解析的 CNAME 目標。`hosts` 可以是單一
+主機名稱或逗號分隔清單(上限 100 個)。唯讀——只做 DNS 查詢加每個 host 一次
+HTTP GET。建議搭配 `subdomain_enum`:先列舉,再把有興趣的 host 丟進來檢查。
+
+回傳 `checked`、`vulnerable_count` 與 `results`(每筆含 `host`、`cname`、
+`service`、`status`、`vulnerable`、`severity`、`detail`)。`status` 為
+`not_applicable`、`not_vulnerable`、`potential`、`dangling_cname` 或
+`vulnerable` 其中之一。
 
 ### `tls_check(host, port=443, timeout?) -> dict`
 

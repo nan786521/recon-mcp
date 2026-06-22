@@ -28,6 +28,7 @@ instead of parsing console output.
 | `recon_report` | **Start here.** One call → DNS, TLS, and HTTP headers checked together, with an overall grade |
 | `dns_recon` | DNS + WHOIS + email security (SPF/DMARC/DKIM), graded |
 | `subdomain_enum` | Discover subdomains via DNS brute-force and/or Certificate Transparency logs |
+| `subdomain_takeover` | Check subdomains for a dangling-CNAME takeover risk against known services |
 | `tls_check` | Certificate, protocols, ciphers, and known TLS vulnerabilities, graded |
 | `http_headers_audit` | HTTP security headers (CSP, HSTS, X-Frame-Options, …), graded |
 | `cookie_audit` | Redirect chain + cookie flags (Secure / HttpOnly / SameSite), graded |
@@ -57,8 +58,8 @@ Just ask your agent: *"run a security recon report on example.com."* It calls
 ```
 
 Need more detail on one area? The agent can call `dns_recon`, `subdomain_enum`,
-`tls_check`, `http_headers_audit`, `cookie_audit`, `cors_check`,
-`well_known_audit`, `ip_info`, or `port_scan` directly.
+`subdomain_takeover`, `tls_check`, `http_headers_audit`, `cookie_audit`,
+`cors_check`, `well_known_audit`, `ip_info`, or `port_scan` directly.
 
 ## Install
 
@@ -146,6 +147,23 @@ Discovers subdomains from two complementary sources:
 
 Returns `sources`, `found_count`, and `found` (each with `subdomain`, the
 `sources` that saw it, and `ips` when resolved).
+
+### `subdomain_takeover(hosts, timeout?) -> dict`
+
+Checks subdomains for a **dangling-CNAME takeover** — a subdomain that CNAMEs to
+a third-party service (GitHub Pages, S3, Heroku, Azure, Fastly, Shopify, …)
+whose resource was deleted or never claimed, letting anyone who registers that
+resource serve content on the victim's subdomain. For each host it resolves the
+CNAME, recognizes known takeover-prone services, fetches the page, and flags
+the provider's "unclaimed resource" fingerprint and/or a CNAME target that no
+longer resolves. `hosts` is one hostname or a comma-separated list (capped at
+100). Read-only — DNS lookups plus one HTTP GET per host. Pair it with
+`subdomain_enum`: enumerate first, then check the interesting hosts.
+
+Returns `checked`, `vulnerable_count`, and `results` (each with `host`, `cname`,
+`service`, `status`, `vulnerable`, `severity`, and `detail`). `status` is one of
+`not_applicable`, `not_vulnerable`, `potential`, `dangling_cname`, or
+`vulnerable`.
 
 ### `tls_check(host, port=443, timeout?) -> dict`
 

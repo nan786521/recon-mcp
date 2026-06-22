@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-06-22
+
+### Added
+- `subdomain_takeover` — checks one or many subdomains for a dangling-CNAME
+  takeover risk. For each host it resolves the CNAME, recognizes known
+  takeover-prone services (GitHub Pages, S3, Heroku, Azure, Fastly, Shopify,
+  and more), fetches the page, and flags either the provider's "unclaimed
+  resource" fingerprint or a CNAME target that no longer resolves. Read-only
+  (DNS + one HTTP GET per host), capped at 100 hosts per call. The network and
+  verdict logic are split so the assessment is unit-tested without the network.
+  Pair it with `subdomain_enum` — enumerate, then check the interesting hosts.
+
 ## [0.8.4] — 2026-06-18
 
 ### Fixed
@@ -150,6 +162,8 @@ All notable changes to this project are documented here. The format is based on
   returning structured JSON with a graded verdict.
 - Published to PyPI as `recon-kit-mcp`.
 
+[0.9.0]: https://github.com/nan786521/recon-mcp/releases/tag/v0.9.0
+[0.8.4]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.4
 [0.8.3]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.3
 [0.8.2]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.2
 [0.8.1]: https://github.com/nan786521/recon-mcp/releases/tag/v0.8.1

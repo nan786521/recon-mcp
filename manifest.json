@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "recon-kit-mcp",
   "display_name": "recon-kit-mcp — network & security recon",
-  "version": "0.8.4",
+  "version": "0.9.0",
   "description": "Safe, structured network & security reconnaissance tools (DNS, WHOIS, TLS, HTTP security headers, cookies, CORS, CT subdomains, RDAP) for AI coding agents — each with a graded verdict.",
   "long_description": "An MCP server that gives AI coding agents (Claude Code, Codex, Cline) read-only network and security reconnaissance tools: recon_report (one-call DNS+TLS+headers overview with an overall grade), dns_recon, subdomain_enum (DNS + Certificate Transparency logs), tls_check, http_headers_audit, cookie_audit (redirect chain + cookie flags), cors_check, well_known_audit (security.txt + robots.txt), ip_info (RDAP ownership), and port_scan. Returns clean JSON with letter grades. For authorized testing, CTF, and education only.",
   "author": {
